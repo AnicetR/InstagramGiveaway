@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Roulette de Concours - Compagnon",
+  "version": "1.0.0",
+  "description": "Compagnon d'extraction de commentaires pour l'application Roulette de Concours Instagram.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.instagram.com/*"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:3000/*"],
+      "js": ["content-app.js"]
+    }
+  ]
+}
