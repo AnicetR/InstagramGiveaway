@@ -65,7 +65,7 @@
                   <span class="text-[9px] font-black">profil_createur</span>
                 </div>
                 <p class="text-[8px] text-slate-300 line-clamp-2 leading-relaxed">
-                  Identifiez 2 amis en commentaire pour participer ! Aimez et abonnez-vous pour gagner. #concours #tirage #roulette
+                  Identifiez 2 amis en commentaire pour participer ! Aimez et abonnez-vous pour gagner. #concours #tirage #giveaway
                 </p>
                 <div class="flex items-center gap-1.5 text-[8px] text-slate-400">
                   <Icon name="mdi:music" class="w-3 h-3" />

@@ -13,7 +13,7 @@
     <div class="w-full space-y-2 pt-2">
       <a 
         href="/downloads/extension-chrome.zip" 
-        download="roulette-compagnon-chrome.zip"
+        download="instagram-giveaway-companion-chrome.zip"
         class="w-full flex items-center justify-center gap-2 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 text-slate-200 text-[10px] py-2.5 px-4 rounded-xl transition font-semibold"
       >
         <Icon name="mdi:google-chrome" class="w-4 h-4 text-emerald-400" />
@@ -21,7 +21,7 @@
       </a>
       <a 
         href="/downloads/extension-firefox.zip" 
-        download="roulette-compagnon-firefox.zip"
+        download="instagram-giveaway-companion-firefox.zip"
         class="w-full flex items-center justify-center gap-2 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 text-slate-200 text-[10px] py-2.5 px-4 rounded-xl transition font-semibold"
       >
         <Icon name="mdi:firefox" class="w-4 h-4 text-orange-400" />

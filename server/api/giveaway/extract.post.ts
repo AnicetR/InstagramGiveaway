@@ -33,7 +33,7 @@ const MOCK_COMMENTS = [
   'Je taggue @creative_nomad et @design_guru - vous devez voir ça !',
   'Je participe ! Déjà abonné et J\'aime ajouté.',
   'Un super concours. Bonne chance à tous les participants ! ❤️',
-  'C\'est parti ! Prêt à faire tourner la roulette ! 🎡',
+  'C\'est parti ! Prêt pour l\'Instagram Giveaway ! 🎡',
   'Superbe travail sur cette sortie, je croise les doigts !',
   'Ce serait parfait pour mon nouveau bureau !',
   'De la pure qualité. J\'espère avoir de la chance cette fois ! 🍀',

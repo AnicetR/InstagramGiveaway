@@ -206,14 +206,14 @@ function updatePostUI() {
     }
   } else {
     btnLaunchRoulette.disabled = true;
-    btnLaunchRoulette.textContent = "Lancer la Roulette";
+    btnLaunchRoulette.textContent = "Lancer le Tirage";
     entrantListEl.style.display = 'none';
   }
 }
 
 btnLaunchRoulette.addEventListener('click', async () => {
   if (currentComments.length === 0) return;
-  statusMessage.textContent = "Ouverture de la Roulette...";
+  statusMessage.textContent = "Ouverture d'Instagram Giveaway...";
   try {
     await savePostToStorage();
     await chrome.tabs.create({ url: "http://localhost:3000/" });

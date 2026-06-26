@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Roulette de Concours - Compagnon",
+  "name": "Instagram Giveaway - Compagnon",
   "version": "1.0.0",
-  "description": "Compagnon d'extraction de commentaires pour l'application Roulette de Concours Instagram.",
+  "description": "Compagnon d'extraction de commentaires pour l'application Instagram Giveaway.",
   "permissions": [
     "activeTab",
     "scripting",

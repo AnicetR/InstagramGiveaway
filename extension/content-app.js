@@ -1,5 +1,5 @@
 // Script de liaison s'exécutant sur http://localhost:3000/*
-console.log("Roulette de Concours : Pont applicatif de l'extension chargé.");
+console.log("Instagram Giveaway : Pont applicatif de l'extension chargé.");
 
 // Fonction utilitaire pour récupérer toutes les données et les renvoyer à l'application web
 function sendScrapedDataResponse() {

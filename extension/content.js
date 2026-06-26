@@ -1,5 +1,5 @@
 // Content script pour l'extraction des commentaires Instagram (scrolling natif résilient)
-console.log("Roulette de Concours : Script de contenu injecté.");
+console.log("Instagram Giveaway : Script de contenu injecté.");
 
 // Fonction résiliente pour trouver le conteneur de défilement des commentaires
 // Conteneur de défilement inutile en extraction manuelle / instantanée

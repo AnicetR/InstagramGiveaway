@@ -1,6 +1,6 @@
-// Service worker d'arrière-plan pour l'extension compagnon Roulette de Concours
+// Service worker d'arrière-plan pour l'extension compagnon Instagram Giveaway
 chrome.runtime.onInstalled.addListener(() => {
-  console.log("L'extension compagnon Roulette de Concours a été installée avec succès.");
+  console.log("L'extension compagnon Instagram Giveaway a été installée avec succès.");
 });
 
 // Intercepter les requêtes HTTP pour contourner les restrictions CSP d'Instagram
