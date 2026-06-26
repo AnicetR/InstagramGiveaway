@@ -89,7 +89,6 @@
           <!-- CORE VIEWPORT / ANIMATION CONTAINER (Centered 70% Safe Zone) -->
           <div class="flex-1 w-full relative z-10 pt-[10%] pb-[20%] flex flex-col justify-center overflow-hidden">
             <Transition name="fade-slide" mode="out-in">
-              
               <!-- State: Idle (Setup and selection screens inside the phone) -->
               <div v-if="store.status === 'idle'" key="idle" class="w-full h-full">
                 
@@ -132,28 +131,76 @@
                   </button>
                 </div>
                 
-                <!-- Step 2: List of Scraped Posts -->
-                <div v-else-if="!selectedPost" class="flex flex-col h-full px-5 py-6 justify-between select-none">
+                <!-- Step 2: List of Scraped Accounts (Select account first) -->
+                <div v-else-if="!selectedAccount" class="flex flex-col h-full px-5 py-6 justify-between select-none">
                   <div class="flex-1 flex flex-col min-h-0">
                     <div class="text-center space-y-1 mb-5 flex-shrink-0">
-                      <h3 class="text-base font-bold font-outfit text-slate-100">Sélectionner un Concours</h3>
-                      <p class="text-[10px] text-slate-400">Publications importées depuis l'extension</p>
+                      <h3 class="text-base font-bold font-outfit text-slate-100">Sélectionner un Compte</h3>
+                      <p class="text-[10px] text-slate-400">Comptes avec abonnés extraits</p>
                     </div>
                     
-                    <!-- Posts list area -->
                     <div class="flex-1 overflow-y-auto pr-1 space-y-2.5 min-h-0">
-                      <div v-if="scrapedPosts.length === 0" class="flex flex-col items-center justify-center py-16 text-center space-y-3">
+                      <div v-if="scrapedAccounts.length === 0" class="flex flex-col items-center justify-center py-16 text-center space-y-3">
                         <div class="w-10 h-10 rounded-full bg-white/[0.02] border border-white/5 flex items-center justify-center text-slate-500">
-                          🎰
+                          👥
                         </div>
                         <p class="text-[10px] text-slate-500 max-w-[180px] leading-relaxed">
-                          Aucun post importé. Rendez-vous sur Instagram et cliquez sur l'extension pour extraire.
+                          Aucun compte créateur importé. Allez sur le profil du créateur dans Instagram et cliquez sur l'extension pour extraire ses abonnés.
                         </p>
                       </div>
                       
                       <div 
                         v-else
-                        v-for="post in scrapedPosts" 
+                        v-for="account in scrapedAccounts" 
+                        :key="account.username"
+                        class="bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 rounded-2xl p-3 flex items-center justify-between transition cursor-pointer"
+                        @click="selectAccount(account)"
+                      >
+                        <div class="flex items-center gap-2.5 flex-1 min-w-0 pr-2">
+                          <img :src="account.avatar" class="w-8 h-8 rounded-full object-cover border border-slate-700" />
+                          <div class="flex-1 min-w-0">
+                            <div class="text-[11px] font-bold text-sky-400 truncate">{{ account.username }}</div>
+                            <div class="text-[9px] text-slate-455 mt-0.5">
+                              <span>👥 {{ account.followers?.length || 0 }} abonnés</span>
+                            </div>
+                          </div>
+                        </div>
+                        <button 
+                          @click.stop="deleteAccount(account.username)"
+                          class="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 hover:border-red-500/40 text-red-400 transition"
+                        >
+                          <Icon name="mdi:trash-can-outline" class="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Step 3: List of Scraped Posts for Selected Account -->
+                <div v-else-if="!selectedPost" class="flex flex-col h-full px-5 py-6 justify-between select-none">
+                  <div class="flex-1 flex flex-col min-h-0">
+                    <div class="text-center space-y-1 mb-5 flex-shrink-0">
+                      <div class="flex items-center justify-center gap-1.5 mb-1 bg-white/[0.03] border border-white/5 py-1 px-3.5 rounded-full w-max mx-auto">
+                        <img :src="selectedAccount.avatar" class="w-4 h-4 rounded-full object-cover border border-slate-700" />
+                        <span class="text-[9px] font-black text-sky-400">{{ selectedAccount.username }}</span>
+                      </div>
+                      <h3 class="text-base font-bold font-outfit text-slate-100">Sélectionner un Concours</h3>
+                      <p class="text-[10px] text-slate-400">Publications de commentaires associées</p>
+                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto pr-1 space-y-2.5 min-h-0">
+                      <div v-if="filteredPosts.length === 0" class="flex flex-col items-center justify-center py-16 text-center space-y-3">
+                        <div class="w-10 h-10 rounded-full bg-white/[0.02] border border-white/5 flex items-center justify-center text-slate-500">
+                          🎰
+                        </div>
+                        <p class="text-[10px] text-slate-500 max-w-[180px] leading-relaxed">
+                          Aucun post importé pour ce compte. Allez sur une publication de ce créateur dans Instagram et cliquez sur l'extension.
+                        </p>
+                      </div>
+                      
+                      <div 
+                        v-else
+                        v-for="post in filteredPosts" 
                         :key="post.url"
                         class="bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 rounded-2xl p-3 flex items-center justify-between transition cursor-pointer"
                         @click="selectPost(post)"
@@ -174,9 +221,18 @@
                       </div>
                     </div>
                   </div>
+                  
+                  <div class="pt-3">
+                    <button 
+                      @click="selectAccount(null)"
+                      class="w-full bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 text-slate-300 font-semibold py-3 px-4 rounded-2xl transition text-xs"
+                    >
+                      Retour aux comptes
+                    </button>
+                  </div>
                 </div>
 
-                <!-- Step 3: Setup Conditions & Start Draw -->
+                <!-- Step 4: Setup Conditions & Start Draw -->
                 <div v-else class="flex flex-col h-full px-5 py-6 justify-between select-none">
                   <div class="space-y-6">
                     <div class="text-center space-y-1">
@@ -184,20 +240,20 @@
                       <p class="text-[10px] text-slate-400 truncate max-w-full px-4">{{ formatPostUrl(selectedPost.url) }}</p>
                     </div>
                     
-                    <div class="bg-emerald-500/5 border border-emerald-500/15 rounded-2xl p-3.5 text-center space-y-1">
-                      <div class="text-xs font-semibold text-emerald-400">{{ selectedPost.users.length }} participants chargés</div>
-                      <div class="text-[9px] text-slate-400 mt-0.5">Données prêtes pour l'élimination</div>
-                      <div 
-                        v-if="selectedPost.followers && selectedPost.followers.length > 0" 
-                        class="text-[9px] text-emerald-400 font-bold flex items-center justify-center gap-1 mt-1"
-                      >
-                        <span>✓</span> {{ selectedPost.followers.length }} abonnés importés (vérification réelle)
+                    <div class="bg-emerald-500/5 border border-emerald-500/15 rounded-2xl p-3.5 text-center space-y-2">
+                      <div class="flex items-center justify-center gap-2">
+                        <img :src="selectedAccount.avatar" class="w-8 h-8 rounded-full object-cover border border-slate-700" />
+                        <div class="text-left">
+                          <div class="text-[11px] font-bold text-sky-400">{{ selectedAccount.username }}</div>
+                          <div class="text-[9px] text-emerald-400 font-bold flex items-center gap-1">
+                            <span>✓</span> {{ selectedAccount.followers?.length || 0 }} abonnés importés
+                          </div>
+                        </div>
                       </div>
-                      <div 
-                        v-else 
-                        class="text-[9px] text-yellow-500/70 font-semibold flex items-center justify-center gap-1 mt-1"
-                      >
-                        <span>!</span> Abonnés non extraits (mode simulation)
+                      
+                      <div class="border-t border-white/5 pt-2 flex items-center justify-between text-[10px] text-slate-400">
+                        <span>Participants chargés :</span>
+                        <span class="font-bold text-emerald-450">{{ selectedPost.users.length }}</span>
                       </div>
                     </div>
                     
@@ -242,13 +298,12 @@
                     </button>
                     <button 
                       @click="selectedPost = null"
-                      class="w-full bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 text-slate-300 font-semibold py-3 px-4 rounded-2xl transition text-xs"
+                      class="w-full bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 text-slate-350 font-semibold py-3 px-4 rounded-2xl transition text-xs"
                     >
                       Retour aux publications
                     </button>
                   </div>
                 </div>
-
               </div>
 
               <!-- States: Reveal, Purges, and Morphing Grid -->
@@ -310,7 +365,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
 import { useGiveawayStore } from '~/stores/giveaway'
 import UserGrid from '~/components/UserGrid.vue'
 import RouletteTape from '~/components/RouletteTape.vue'
@@ -327,6 +382,8 @@ const showSafeGuide = ref(false)
 
 // Extension detection and list
 const isExtensionLoaded = ref(false)
+const scrapedAccounts = ref<any[]>([])
+const selectedAccount = ref<any | null>(null)
 const scrapedPosts = ref<any[]>([])
 const selectedPost = ref<any | null>(null)
 
@@ -341,6 +398,16 @@ function toggleRule(rule: 'likes' | 'followers') {
     checkFollowers.value = !checkFollowers.value
   }
 }
+
+// Computed property to filter posts by selected account
+const filteredPosts = computed(() => {
+  if (!selectedAccount.value) return []
+  return scrapedPosts.value.filter(post => {
+    if (!post.ownerUsername) return true // Fallback pour les publications dont le propriétaire n'a pas pu être extrait
+    if (!selectedAccount.value.username) return false
+    return post.ownerUsername.toLowerCase().trim() === selectedAccount.value.username.toLowerCase().trim()
+  })
+})
 
 // Format utilities
 function formatPostUrl(url: string) {
@@ -372,15 +439,23 @@ function deletePost(url: string) {
   window.postMessage({ type: 'DELETE_SCRAPED_POST', data: { url } }, '*')
 }
 
+function deleteAccount(username: string) {
+  window.postMessage({ type: 'DELETE_SCRAPED_ACCOUNT', data: { username } }, '*')
+}
+
 function selectPost(post: any) {
   selectedPost.value = post
+}
+
+function selectAccount(account: any) {
+  selectedAccount.value = account
 }
 
 // Reset/Abort drawing
 function resetDraw() {
   store.reset()
-  // Refresh posts list from extension
-  window.postMessage({ type: 'GET_SCRAPED_POSTS' }, '*')
+  // Refresh posts and accounts list from extension
+  window.postMessage({ type: 'GET_SCRAPED_DATA' }, '*')
 }
 
 // Demo data generator
@@ -415,14 +490,34 @@ function generateMockUsers(count: number) {
 
 function loadDemoData() {
   isExtensionLoaded.value = true
+  
+  scrapedAccounts.value = [
+    {
+      username: '@patricerv',
+      avatar: 'https://i.pravatar.cc/150?u=patricerv',
+      followers: ['@pixel_nomad', '@luna_wanderlust', '@tech_pioneer', '@aurora_design', '@zen_developer', '@golden_hour_vibes'],
+      followersCount: 1049,
+      scrapedAt: Date.now() - 1000 * 60 * 60 * 24
+    },
+    {
+      username: '@johnrachic',
+      avatar: 'https://i.pravatar.cc/150?u=johnrachic',
+      followers: ['@golden_hour_vibes', '@indie_hacker', '@neon_dreamer', '@code_artisan', '@coffee_n_compile', '@pixel_nomad'],
+      followersCount: 3200,
+      scrapedAt: Date.now() - 1000 * 60 * 60 * 48
+    }
+  ]
+
   scrapedPosts.value = [
     {
       url: 'https://www.instagram.com/p/mock_summer_giveaway/',
+      ownerUsername: '@patricerv',
       scrapedAt: Date.now() - 1000 * 60 * 5, // 5 min ago
       users: generateMockUsers(60)
     },
     {
       url: 'https://www.instagram.com/p/mock_winter_contest/',
+      ownerUsername: '@johnrachic',
       scrapedAt: Date.now() - 1000 * 60 * 60 * 2, // 2h ago
       users: generateMockUsers(45)
     }
@@ -437,11 +532,11 @@ function launchDraw() {
     // Vérification réelle si la liste des abonnés a été extraite par l'extension
     let is_follower = true
     if (checkFollowers.value) {
-      if (selectedPost.value.followers && Array.isArray(selectedPost.value.followers)) {
-        is_follower = selectedPost.value.followers.includes(u.username)
+      if (selectedAccount.value && selectedAccount.value.followers && Array.isArray(selectedAccount.value.followers)) {
+        is_follower = selectedAccount.value.followers.includes(u.username)
       } else {
         // Fallback simulé si la liste n'a pas été extraite
-        is_follower = Math.random() > 0.40
+        is_follower = Math.random() > 0.45
       }
     }
     
@@ -542,15 +637,28 @@ onMounted(() => {
   // Listen to bridge messages
   window.addEventListener('message', (event) => {
     if (event.source !== window) return
-    const { type, posts } = event.data
+    const { type, posts, accounts } = event.data
     
     if (type === 'EXTENSION_PONG') {
       isExtensionLoaded.value = true
       clearInterval(pingInterval)
-      // Retrieve list of posts from extension
-      window.postMessage({ type: 'GET_SCRAPED_POSTS' }, '*')
+      // Retrieve list of posts and accounts from extension
+      window.postMessage({ type: 'GET_SCRAPED_DATA' }, '*')
     } else if (type === 'SCRAPED_POSTS_RESPONSE') {
       scrapedPosts.value = posts || []
+    } else if (type === 'SCRAPED_DATA_RESPONSE') {
+      scrapedPosts.value = posts || []
+      scrapedAccounts.value = accounts || []
+      
+      // If selected account is no longer in the list, reset it
+      if (selectedAccount.value && !scrapedAccounts.value.some(a => a.username === selectedAccount.value.username)) {
+        selectedAccount.value = null
+      }
+      
+      // If selected post is no longer in the list, reset it
+      if (selectedPost.value && !scrapedPosts.value.some(p => p.url === selectedPost.value.url)) {
+        selectedPost.value = null
+      }
     }
   })
 })

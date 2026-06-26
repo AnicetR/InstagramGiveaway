@@ -299,11 +299,11 @@
       </div>
     </div>
 
-    <!-- State: Not on Instagram Post -->
+    <!-- State: Not on Instagram Post or Profile -->
     <div id="wrong-page-view" class="glass-card error-card" style="display: none;">
       <span class="card-title" style="color: #ef4444;">Mauvaise Page</span>
       <p style="font-size: 11px; line-height: 1.4; color: #fca5a5;">
-        Veuillez ouvrir une publication Instagram publique (ex: <code>instagram.com/p/...</code>) dans votre navigateur pour pouvoir extraire les commentaires.
+        Veuillez ouvrir une publication Instagram (<code>/p/</code>, <code>/reel/</code>) pour extraire les commentaires, ou un profil créateur (<code>instagram.com/username/</code>) pour extraire sa liste d'abonnés.
       </p>
     </div>
 
@@ -317,11 +317,6 @@
         <span class="stat-value" id="comment-count">0</span>
       </div>
 
-      <div class="stats" id="followers-stats" style="display: none; margin-top: 8px;">
-        <span class="stat-label">Abonnés extraits</span>
-        <span class="stat-value" id="follower-count">0</span>
-      </div>
-
       <!-- Preview of extracted users -->
       <div class="entrant-preview" id="entrant-list" style="display: none;">
         <!-- Injected items -->
@@ -332,16 +327,36 @@
           Extraire les commentaires
         </button>
 
-        <button id="btn-extract-followers" class="btn-secondary" style="display: none;">
-          Extraire la liste des abonnés
-        </button>
-
         <button id="btn-launch-roulette" class="btn-primary" disabled>
           Lancer la Roulette
         </button>
       </div>
 
       <div class="status-text" id="status-message">Prêt à extraire</div>
+    </div>
+
+    <!-- State: Active Instagram Profile -->
+    <div id="active-profile-view" class="glass-card" style="display: none;">
+      <span class="card-title">Profil créateur détecté</span>
+      <div class="url-display" id="profile-username">Chargement...</div>
+
+      <div class="stats">
+        <span class="stat-label">Abonnés (Profil)</span>
+        <span class="stat-value" id="profile-followers-total">0</span>
+      </div>
+
+      <div class="stats" id="profile-scraped-stats" style="display: none; margin-top: 8px;">
+        <span class="stat-label">Abonnés extraits</span>
+        <span class="stat-value" id="profile-followers-scraped">0</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+        <button id="btn-extract-profile-followers" class="btn-primary">
+          Extraire la liste des abonnés
+        </button>
+      </div>
+
+      <div class="status-text" id="profile-status-message">Prêt à extraire</div>
     </div>
   </div>
 

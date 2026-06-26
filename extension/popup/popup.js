@@ -1,36 +1,47 @@
 // Popup script pour l'extension compagnon Roulette de Concours
 
 let activeTab = null;
-let currentComments = [];
-let isExtracting = false;
+let isPostPage = false;
+let isProfilePage = false;
 
-// Sélecteurs d'éléments UI
+// Variables pour l'état Publication
+let currentComments = [];
+let ownerUsername = null;
+
+// Variables pour l'état Profil
+let profileMetadata = null;
+let currentFollowers = [];
+
+// Sélecteurs UI communs
 const wrongPageView = document.getElementById('wrong-page-view');
 const activePostView = document.getElementById('active-post-view');
+const activeProfileView = document.getElementById('active-profile-view');
+const btnLaunchRoulette = document.getElementById('btn-launch-roulette');
+
+// Sélecteurs UI - Publication
 const postUrlEl = document.getElementById('post-url');
 const commentCountEl = document.getElementById('comment-count');
 const entrantListEl = document.getElementById('entrant-list');
 const btnExtractCurrent = document.getElementById('btn-extract-current');
-const btnExtractFollowers = document.getElementById('btn-extract-followers');
-const btnLaunchRoulette = document.getElementById('btn-launch-roulette');
 const statusMessage = document.getElementById('status-message');
-const followersStats = document.getElementById('followers-stats');
-const followerCountEl = document.getElementById('follower-count');
 
-// Variables globales de contexte du propriétaire
-let ownerId = null;
-let ownerUsername = null;
-let currentFollowers = [];
+// Sélecteurs UI - Profil
+const profileUsernameEl = document.getElementById('profile-username');
+const profileFollowersTotalEl = document.getElementById('profile-followers-total');
+const profileScrapedStats = document.getElementById('profile-scraped-stats');
+const profileFollowersScrapedEl = document.getElementById('profile-followers-scraped');
+const btnExtractProfileFollowers = document.getElementById('btn-extract-profile-followers');
+const profileStatusMessage = document.getElementById('profile-status-message');
 
-// Écouteur global pour suivre la progression de l'extraction API (commentaires et abonnés)
+// Écouteur global pour suivre la progression de l'extraction API
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "extraction_progress") {
     commentCountEl.textContent = message.count;
     statusMessage.textContent = `Extraction en cours... (${message.count} trouvés)`;
   } else if (message.action === "followers_progress") {
-    followersStats.style.display = 'flex';
-    followerCountEl.textContent = message.count;
-    statusMessage.textContent = `Extraction des abonnés... (${message.count} récupérés)`;
+    profileScrapedStats.style.display = 'flex';
+    profileFollowersScrapedEl.textContent = message.count;
+    profileStatusMessage.textContent = `Extraction des abonnés... (${message.count} récupérés)`;
   }
 });
 
@@ -43,153 +54,80 @@ document.addEventListener('DOMContentLoaded', async () => {
     activeTab = tabs[0];
     const url = activeTab.url || '';
     
-    // Vérifier si nous sommes sur un post Instagram
-    const isInstagramPost = url.includes('instagram.com/p/') || 
-                            url.includes('instagram.com/reel/') || 
-                            url.includes('instagram.com/tv/');
-                            
-    if (!isInstagramPost) {
-      wrongPageView.style.display = 'flex';
-      activePostView.style.display = 'none';
-      return;
-    }
+    // Déterminer le type de page Instagram
+    const pathParts = new URL(url).pathname.split('/').filter(p => p);
     
-    wrongPageView.style.display = 'none';
-    activePostView.style.display = 'flex';
-    
-    // Raccourcir l'URL pour l'affichage
-    const urlDisplay = url.split('?')[0];
-    postUrlEl.textContent = urlDisplay;
-    
-    statusMessage.textContent = "Initialisation du script d'extraction...";
+    isPostPage = url.includes('instagram.com/p/') || 
+                 url.includes('instagram.com/reel/') || 
+                 url.includes('instagram.com/tv/');
+                 
+    isProfilePage = !isPostPage && pathParts.length > 0 && 
+                    !['explore', 'reels', 'direct', 'stories', 'emails', 'developer', 'about', 'blog', 'jobs', 'help', 'api', 'privacy', 'terms', 'directory', 'locations', 'instagram'].includes(pathParts[0].toLowerCase());
     
     // Injecter programmatiquement le content.js
     await chrome.scripting.executeScript({
       target: { tabId: activeTab.id },
       files: ['content.js']
     });
-    
-    statusMessage.textContent = "Script d'extraction prêt.";
-    
-    // Effectuer une première extraction rapide des commentaires déjà chargés
-    await extractCurrentState();
+
+    if (isPostPage) {
+      initPostView(url);
+    } else if (isProfilePage) {
+      initProfileView();
+    } else {
+      showWrongPage();
+    }
     
   } catch (error) {
     console.error("Erreur d'initialisation :", error);
-    statusMessage.textContent = "Erreur : " + error.message;
+    showWrongPage();
   }
 });
 
-// Événement : Extraire l'état actuel
-btnExtractCurrent.addEventListener('click', async () => {
-  await extractCurrentState();
-});
+// --- VUE PUBLICATION ---
 
-// Défilement automatique supprimé (extraction manuelle uniquement)
-
-// Enregistrer les données extraites dans le stockage local de l'extension
-async function saveCommentsToStorage() {
-  if (currentComments.length === 0) return;
+async function initPostView(url) {
+  wrongPageView.style.display = 'none';
+  activeProfileView.style.display = 'none';
+  activePostView.style.display = 'flex';
   
-  const postUrl = activeTab.url.split('?')[0];
+  const urlDisplay = url.split('?')[0];
+  postUrlEl.textContent = urlDisplay;
+  statusMessage.textContent = "Script d'extraction prêt.";
+  
+  // Charger les données précédemment sauvegardées si existantes
   try {
     const result = await chrome.storage.local.get('scrapedPosts');
     const scrapedPosts = result.scrapedPosts || {};
-    
-    // Enregistrer ou mettre à jour la publication avec la liste d'abonnés
-    scrapedPosts[postUrl] = {
-      url: postUrl,
-      users: currentComments,
-      followers: currentFollowers,
-      scrapedAt: Date.now()
-    };
-    
-    await chrome.storage.local.set({ scrapedPosts });
-    console.log("Publication et abonnés sauvegardés localement dans le stockage de l'extension.");
+    const postData = scrapedPosts[urlDisplay];
+    if (postData) {
+      currentComments = postData.users || [];
+      ownerUsername = postData.ownerUsername || null;
+      updatePostUI();
+      statusMessage.textContent = `Données chargées (${currentComments.length} commentaires extraits précédemment).`;
+    }
   } catch (e) {
-    console.error("Erreur lors de la sauvegarde locale :", e);
+    console.error(e);
   }
 }
 
-// Événement : Lancer la roulette
-btnLaunchRoulette.addEventListener('click', async () => {
-  if (currentComments.length === 0) return;
-  
-  statusMessage.textContent = "Ouverture de la Roulette...";
-  
-  try {
-    // Sauvegarder une dernière fois pour être sûr
-    await saveCommentsToStorage();
-    
-    const targetUrl = "http://localhost:3000/";
-    
-    // Ouvrir l'application dans un nouvel onglet
-    await chrome.tabs.create({ url: targetUrl });
-    statusMessage.textContent = "Lancement réussi !";
-  } catch (error) {
-    console.error("Erreur de lancement :", error);
-    statusMessage.textContent = "Erreur de lancement : " + error.message;
-  }
-});
-
-// Événement : Extraire la liste des abonnés du créateur
-btnExtractFollowers.addEventListener('click', async () => {
-  if (!ownerId) return;
-  
-  statusMessage.textContent = "Initialisation de l'extraction des abonnés...";
-  btnExtractCurrent.disabled = true;
-  btnExtractFollowers.disabled = true;
-  btnLaunchRoulette.disabled = true;
-  followersStats.style.display = 'flex';
-  
-  try {
-    const response = await chrome.tabs.sendMessage(activeTab.id, { 
-      action: "extract_followers", 
-      userId: ownerId 
-    });
-    
-    if (response && response.success) {
-      currentFollowers = response.followers || [];
-      followerCountEl.textContent = currentFollowers.length;
-      statusMessage.textContent = `Extraction des abonnés réussie (${currentFollowers.length} abonnés récupérés).`;
-      await saveCommentsToStorage();
-    } else {
-      statusMessage.textContent = response ? response.error : "Erreur de récupération des abonnés.";
-    }
-  } catch (error) {
-    console.error("Erreur abonnés :", error);
-    statusMessage.textContent = "Erreur de communication : réactualisez l'onglet Instagram.";
-  } finally {
-    btnExtractCurrent.disabled = false;
-    btnExtractFollowers.disabled = false;
-    btnLaunchRoulette.disabled = false;
-  }
-});
-
-// Fonction utilitaire d'extraction de l'état actuel
-async function extractCurrentState() {
+btnExtractCurrent.addEventListener('click', async () => {
   statusMessage.textContent = "Extraction en cours...";
   btnExtractCurrent.disabled = true;
   btnLaunchRoulette.disabled = true;
-  btnExtractFollowers.style.display = 'none';
-  followersStats.style.display = 'none';
-  currentFollowers = [];
   
   try {
     const response = await chrome.tabs.sendMessage(activeTab.id, { action: "extract_comments" });
     if (response && response.success) {
       currentComments = response.comments || [];
-      ownerId = response.ownerId || null;
-      ownerUsername = response.ownerUsername || null;
-      updateUI();
-      const methodStr = response.method === "graphql" ? "via API" : "via DOM";
+      ownerUsername = response.ownerUsername ? `@${response.ownerUsername.replace('@', '')}` : null;
+      
+      updatePostUI();
+      
+      const methodStr = response.method.startsWith("graphql") ? "via API" : "via DOM";
       statusMessage.textContent = `Extraction réussie (${currentComments.length} participants, ${methodStr}).`;
       
-      // Si on a l'ID du créateur, proposer l'extraction des abonnés
-      if (ownerId) {
-        btnExtractFollowers.style.display = 'flex';
-        btnExtractFollowers.textContent = `Extraire les abonnés de @${ownerUsername || 'créateur'}`;
-      }
+      await savePostToStorage();
     } else {
       statusMessage.textContent = response ? response.error : "Aucun commentaire trouvé.";
     }
@@ -199,22 +137,39 @@ async function extractCurrentState() {
   } finally {
     btnExtractCurrent.disabled = false;
   }
+});
+
+async function savePostToStorage() {
+  if (currentComments.length === 0) return;
+  const postUrl = activeTab.url.split('?')[0];
+  try {
+    const result = await chrome.storage.local.get('scrapedPosts');
+    const scrapedPosts = result.scrapedPosts || {};
+    
+    scrapedPosts[postUrl] = {
+      url: postUrl,
+      ownerUsername: ownerUsername,
+      users: currentComments,
+      scrapedAt: Date.now()
+    };
+    
+    await chrome.storage.local.set({ scrapedPosts });
+    console.log("Publication sauvegardée.");
+  } catch (e) {
+    console.error("Erreur de sauvegarde de la publication :", e);
+  }
 }
 
-// Mettre à jour l'interface utilisateur
-function updateUI() {
+function updatePostUI() {
   commentCountEl.textContent = currentComments.length;
   
-  // Activer le bouton de lancement de roulette si on a des commentaires
   if (currentComments.length > 0) {
     btnLaunchRoulette.disabled = false;
     btnLaunchRoulette.textContent = `Lancer le tirage sur ${currentComments.length} users`;
     
-    // Afficher l'aperçu
     entrantListEl.innerHTML = '';
     entrantListEl.style.display = 'flex';
     
-    // Afficher les 5 premiers pour ne pas surcharger le popup
     const previewCount = Math.min(5, currentComments.length);
     for (let i = 0; i < previewCount; i++) {
       const item = currentComments[i];
@@ -249,12 +204,117 @@ function updateUI() {
       moreDiv.textContent = `... et ${currentComments.length - 5} autres participants`;
       entrantListEl.appendChild(moreDiv);
     }
-    
-    // Sauvegarder automatiquement les données à chaque extraction réussie
-    saveCommentsToStorage();
   } else {
     btnLaunchRoulette.disabled = true;
     btnLaunchRoulette.textContent = "Lancer la Roulette";
     entrantListEl.style.display = 'none';
   }
+}
+
+btnLaunchRoulette.addEventListener('click', async () => {
+  if (currentComments.length === 0) return;
+  statusMessage.textContent = "Ouverture de la Roulette...";
+  try {
+    await savePostToStorage();
+    await chrome.tabs.create({ url: "http://localhost:3000/" });
+  } catch (error) {
+    statusMessage.textContent = "Erreur : " + error.message;
+  }
+});
+
+// --- VUE PROFIL ---
+
+async function initProfileView() {
+  wrongPageView.style.display = 'none';
+  activePostView.style.display = 'none';
+  activeProfileView.style.display = 'flex';
+  
+  profileStatusMessage.textContent = "Récupération des métadonnées du profil...";
+  btnExtractProfileFollowers.disabled = true;
+  
+  try {
+    const response = await chrome.tabs.sendMessage(activeTab.id, { action: "get_profile_metadata" });
+    if (response && response.success) {
+      profileMetadata = response.metadata;
+      
+      profileUsernameEl.textContent = profileMetadata.username;
+      profileFollowersTotalEl.textContent = profileMetadata.followersCount.toLocaleString();
+      profileStatusMessage.textContent = "Profil chargé. Prêt à extraire les abonnés.";
+      btnExtractProfileFollowers.disabled = false;
+      
+      // Charger les abonnés précédemment extraits si existants
+      const result = await chrome.storage.local.get('scrapedAccounts');
+      const scrapedAccounts = result.scrapedAccounts || {};
+      const accountData = scrapedAccounts[profileMetadata.username];
+      if (accountData) {
+        currentFollowers = accountData.followers || [];
+        profileScrapedStats.style.display = 'flex';
+        profileFollowersScrapedEl.textContent = currentFollowers.length;
+        profileStatusMessage.textContent = `Données chargées (${currentFollowers.length} abonnés extraits précédemment).`;
+      }
+    } else {
+      profileStatusMessage.textContent = response ? response.error : "Impossible de charger les métadonnées.";
+    }
+  } catch (error) {
+    console.error(error);
+    profileStatusMessage.textContent = "Erreur de communication : réactualisez la page du profil.";
+  }
+}
+
+btnExtractProfileFollowers.addEventListener('click', async () => {
+  if (!profileMetadata) return;
+  
+  profileStatusMessage.textContent = "Initialisation de l'extraction des abonnés...";
+  btnExtractProfileFollowers.disabled = true;
+  profileScrapedStats.style.display = 'flex';
+  
+  try {
+    const response = await chrome.tabs.sendMessage(activeTab.id, { 
+      action: "extract_followers", 
+      userId: profileMetadata.id 
+    });
+    
+    if (response && response.success) {
+      currentFollowers = response.followers || [];
+      profileFollowersScrapedEl.textContent = currentFollowers.length;
+      profileStatusMessage.textContent = `Extraction réussie (${currentFollowers.length} abonnés récupérés).`;
+      await saveAccountToStorage();
+    } else {
+      profileStatusMessage.textContent = response ? response.error : "Erreur de récupération des abonnés.";
+    }
+  } catch (error) {
+    console.error("Erreur abonnés :", error);
+    profileStatusMessage.textContent = "Erreur de communication : réactualisez la page.";
+  } finally {
+    btnExtractProfileFollowers.disabled = false;
+  }
+});
+
+async function saveAccountToStorage() {
+  if (!profileMetadata || currentFollowers.length === 0) return;
+  try {
+    const result = await chrome.storage.local.get('scrapedAccounts');
+    const scrapedAccounts = result.scrapedAccounts || {};
+    
+    scrapedAccounts[profileMetadata.username] = {
+      username: profileMetadata.username,
+      followers: currentFollowers,
+      followersCount: profileMetadata.followersCount,
+      avatar: profileMetadata.avatar,
+      scrapedAt: Date.now()
+    };
+    
+    await chrome.storage.local.set({ scrapedAccounts });
+    console.log("Compte créateur sauvegardé.");
+  } catch (e) {
+    console.error("Erreur de sauvegarde du compte créateur :", e);
+  }
+}
+
+// --- COMMUNE ---
+
+function showWrongPage() {
+  wrongPageView.style.display = 'flex';
+  activePostView.style.display = 'none';
+  activeProfileView.style.display = 'none';
 }

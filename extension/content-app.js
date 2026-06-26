@@ -1,6 +1,23 @@
 // Script de liaison s'exécutant sur http://localhost:3000/*
 console.log("Roulette de Concours : Pont applicatif de l'extension chargé.");
 
+// Fonction utilitaire pour récupérer toutes les données et les renvoyer à l'application web
+function sendScrapedDataResponse() {
+  chrome.storage.local.get(['scrapedPosts', 'scrapedAccounts'], (result) => {
+    const postsMap = result.scrapedPosts || {};
+    const postsList = Object.values(postsMap).sort((a, b) => b.scrapedAt - a.scrapedAt);
+    
+    const accountsMap = result.scrapedAccounts || {};
+    const accountsList = Object.values(accountsMap).sort((a, b) => b.scrapedAt - a.scrapedAt);
+    
+    window.postMessage({ 
+      type: 'SCRAPED_DATA_RESPONSE', 
+      posts: postsList, 
+      accounts: accountsList 
+    }, '*');
+  });
+}
+
 // Écouter les messages provenant de l'application Nuxt
 window.addEventListener('message', (event) => {
   // S'assurer que le message vient de notre propre page
@@ -16,13 +33,9 @@ window.addEventListener('message', (event) => {
     window.postMessage({ type: 'EXTENSION_PONG' }, '*');
   }
   
-  // Renvoyer tous les posts sauvegardés
-  else if (type === 'GET_SCRAPED_POSTS') {
-    chrome.storage.local.get('scrapedPosts', (result) => {
-      const postsMap = result.scrapedPosts || {};
-      const postsList = Object.values(postsMap).sort((a, b) => b.scrapedAt - a.scrapedAt);
-      window.postMessage({ type: 'SCRAPED_POSTS_RESPONSE', posts: postsList }, '*');
-    });
+  // Renvoyer toutes les données sauvegardées (posts et comptes)
+  else if (type === 'GET_SCRAPED_POSTS' || type === 'GET_SCRAPED_DATA') {
+    sendScrapedDataResponse();
   }
   
   // Supprimer un post de la liste
@@ -33,8 +46,22 @@ window.addEventListener('message', (event) => {
         if (postsMap[data.url]) {
           delete postsMap[data.url];
           chrome.storage.local.set({ scrapedPosts: postsMap }, () => {
-            const postsList = Object.values(postsMap).sort((a, b) => b.scrapedAt - a.scrapedAt);
-            window.postMessage({ type: 'SCRAPED_POSTS_RESPONSE', posts: postsList }, '*');
+            sendScrapedDataResponse();
+          });
+        }
+      });
+    }
+  }
+  
+  // Supprimer un compte de la liste
+  else if (type === 'DELETE_SCRAPED_ACCOUNT') {
+    if (data && data.username) {
+      chrome.storage.local.get('scrapedAccounts', (result) => {
+        const accountsMap = result.scrapedAccounts || {};
+        if (accountsMap[data.username]) {
+          delete accountsMap[data.username];
+          chrome.storage.local.set({ scrapedAccounts: accountsMap }, () => {
+            sendScrapedDataResponse();
           });
         }
       });
