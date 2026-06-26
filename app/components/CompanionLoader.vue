@@ -12,7 +12,7 @@
     <!-- Download links -->
     <div class="w-full space-y-2 pt-2">
       <a 
-        href="/downloads/extension-chrome.zip" 
+        :href="`${config.app.baseURL}downloads/extension-chrome.zip`" 
         download="instagram-giveaway-companion-chrome.zip"
         class="w-full flex items-center justify-center gap-2 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 text-slate-200 text-[10px] py-2.5 px-4 rounded-xl transition font-semibold"
       >
@@ -20,7 +20,7 @@
         Télécharger pour Chrome (.zip)
       </a>
       <a 
-        href="/downloads/extension-firefox.zip" 
+        :href="`${config.app.baseURL}downloads/extension-firefox.zip`" 
         download="instagram-giveaway-companion-firefox.zip"
         class="w-full flex items-center justify-center gap-2 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 text-slate-200 text-[10px] py-2.5 px-4 rounded-xl transition font-semibold"
       >
@@ -39,6 +39,8 @@
 </template>
 
 <script setup lang="ts">
+const config = useRuntimeConfig()
+
 defineEmits<{
   (e: 'load-demo'): void
 }>()
