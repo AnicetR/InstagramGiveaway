@@ -317,6 +317,11 @@
         <span class="stat-value" id="comment-count">0</span>
       </div>
 
+      <div class="stats" id="followers-stats" style="display: none; margin-top: 8px;">
+        <span class="stat-label">Abonnés extraits</span>
+        <span class="stat-value" id="follower-count">0</span>
+      </div>
+
       <!-- Preview of extracted users -->
       <div class="entrant-preview" id="entrant-list" style="display: none;">
         <!-- Injected items -->
@@ -325,6 +330,10 @@
       <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
         <button id="btn-extract-current" class="btn-primary">
           Extraire les commentaires
+        </button>
+
+        <button id="btn-extract-followers" class="btn-secondary" style="display: none;">
+          Extraire la liste des abonnés
         </button>
 
         <button id="btn-launch-roulette" class="btn-primary" disabled>

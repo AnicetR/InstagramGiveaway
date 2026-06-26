@@ -184,9 +184,21 @@
                       <p class="text-[10px] text-slate-400 truncate max-w-full px-4">{{ formatPostUrl(selectedPost.url) }}</p>
                     </div>
                     
-                    <div class="bg-emerald-500/5 border border-emerald-500/15 rounded-2xl p-3.5 text-center">
+                    <div class="bg-emerald-500/5 border border-emerald-500/15 rounded-2xl p-3.5 text-center space-y-1">
                       <div class="text-xs font-semibold text-emerald-400">{{ selectedPost.users.length }} participants chargés</div>
                       <div class="text-[9px] text-slate-400 mt-0.5">Données prêtes pour l'élimination</div>
+                      <div 
+                        v-if="selectedPost.followers && selectedPost.followers.length > 0" 
+                        class="text-[9px] text-emerald-400 font-bold flex items-center justify-center gap-1 mt-1"
+                      >
+                        <span>✓</span> {{ selectedPost.followers.length }} abonnés importés (vérification réelle)
+                      </div>
+                      <div 
+                        v-else 
+                        class="text-[9px] text-yellow-500/70 font-semibold flex items-center justify-center gap-1 mt-1"
+                      >
+                        <span>!</span> Abonnés non extraits (mode simulation)
+                      </div>
                     </div>
                     
                     <!-- Eligibility Rules Toggles inside the simulator -->
@@ -421,11 +433,20 @@ function loadDemoData() {
 function launchDraw() {
   if (!selectedPost.value) return
 
-  // Mock liked & followers statuses locally so the visual filters work dramatically
   const users = selectedPost.value.users.map((u: any) => {
-    // Generate pseudo-random eligibility to make filter phases visually dramatic
+    // Vérification réelle si la liste des abonnés a été extraite par l'extension
+    let is_follower = true
+    if (checkFollowers.value) {
+      if (selectedPost.value.followers && Array.isArray(selectedPost.value.followers)) {
+        is_follower = selectedPost.value.followers.includes(u.username)
+      } else {
+        // Fallback simulé si la liste n'a pas été extraite
+        is_follower = Math.random() > 0.40
+      }
+    }
+    
+    // likes est toujours simulé localement
     const has_liked = checkLikes.value ? (Math.random() > 0.35) : true
-    const is_follower = checkFollowers.value ? (Math.random() > 0.40) : true
     
     return {
       ...u,

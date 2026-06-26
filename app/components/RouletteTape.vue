@@ -89,6 +89,7 @@
                 :class="{
                   'border-yellow-400': store.status === 'victory' && idx === winningIndex
                 }"
+                @error="handleAvatarError($event, item.username)"
                 alt="Avatar"
               />
               <div 
@@ -116,9 +117,18 @@
           <div class="absolute -bottom-16 -right-16 w-32 h-32 bg-yellow-500/15 rounded-full blur-3xl"></div>
           <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-yellow-500/10 rounded-full blur-[50px] pointer-events-none"></div>
 
-          <!-- Trophy / Winner Badge -->
-          <div class="w-20 h-20 bg-gradient-to-tr from-yellow-500 via-amber-400 to-yellow-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_35px_rgba(245,158,11,0.5)] border border-yellow-400/50 relative animate-bounce">
-            <Icon name="mdi:trophy" class="w-10 h-10 text-slate-900" />
+          <!-- Winner Avatar / Trophy Badge -->
+          <div class="w-20 h-20 mx-auto mb-5 relative animate-bounce">
+            <img 
+              :src="store.winner.avatar" 
+              class="w-full h-full rounded-full object-cover border-4 border-yellow-500 shadow-[0_0_25px_rgba(245,158,11,0.55)]"
+              @error="handleAvatarError($event, store.winner.username)"
+              alt="Winner Avatar"
+            />
+            <!-- Small Trophy Badge overlay -->
+            <div class="absolute -bottom-1 -right-1 w-7 h-7 bg-gradient-to-tr from-yellow-500 to-yellow-600 rounded-full flex items-center justify-center border border-yellow-400 shadow">
+              <Icon name="mdi:trophy" class="w-3.5 h-3.5 text-slate-950" />
+            </div>
             <!-- Small sparkles -->
             <span class="absolute -top-1 -right-1 flex h-3 w-3">
               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
@@ -330,6 +340,20 @@ function startSpin() {
 
 function resetStore() {
   store.reset()
+}
+
+function handleAvatarError(event: Event, username: string) {
+  const img = event.target as HTMLImageElement;
+  const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#ef4444'];
+  let hash = 0;
+  const name = username || 'U';
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const color = colors[Math.abs(hash) % colors.length];
+  const char = name.replace('@', '').charAt(0).toUpperCase() || 'U';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" fill="${color}"/><text x="50" y="65" font-family="Arial, sans-serif" font-size="50" font-weight="bold" fill="#ffffff" text-anchor="middle">${char}</text></svg>`;
+  img.src = 'data:image/svg+xml;base64,' + btoa(svg);
 }
 
 onMounted(() => {

@@ -10,7 +10,9 @@
     "storage"
   ],
   "host_permissions": [
-    "https://*.instagram.com/*"
+    "https://*.instagram.com/*",
+    "https://*.cdninstagram.com/*",
+    "https://*.fbcdn.net/*"
   ],
   "action": {
     "default_popup": "popup/popup.html"

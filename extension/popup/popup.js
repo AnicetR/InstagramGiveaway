@@ -11,14 +11,26 @@ const postUrlEl = document.getElementById('post-url');
 const commentCountEl = document.getElementById('comment-count');
 const entrantListEl = document.getElementById('entrant-list');
 const btnExtractCurrent = document.getElementById('btn-extract-current');
+const btnExtractFollowers = document.getElementById('btn-extract-followers');
 const btnLaunchRoulette = document.getElementById('btn-launch-roulette');
 const statusMessage = document.getElementById('status-message');
+const followersStats = document.getElementById('followers-stats');
+const followerCountEl = document.getElementById('follower-count');
 
-// Écouteur global pour suivre la progression de l'extraction API
+// Variables globales de contexte du propriétaire
+let ownerId = null;
+let ownerUsername = null;
+let currentFollowers = [];
+
+// Écouteur global pour suivre la progression de l'extraction API (commentaires et abonnés)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "extraction_progress") {
     commentCountEl.textContent = message.count;
     statusMessage.textContent = `Extraction en cours... (${message.count} trouvés)`;
+  } else if (message.action === "followers_progress") {
+    followersStats.style.display = 'flex';
+    followerCountEl.textContent = message.count;
+    statusMessage.textContent = `Extraction des abonnés... (${message.count} récupérés)`;
   }
 });
 
@@ -84,15 +96,16 @@ async function saveCommentsToStorage() {
     const result = await chrome.storage.local.get('scrapedPosts');
     const scrapedPosts = result.scrapedPosts || {};
     
-    // Enregistrer ou mettre à jour la publication
+    // Enregistrer ou mettre à jour la publication avec la liste d'abonnés
     scrapedPosts[postUrl] = {
       url: postUrl,
       users: currentComments,
+      followers: currentFollowers,
       scrapedAt: Date.now()
     };
     
     await chrome.storage.local.set({ scrapedPosts });
-    console.log("Publication sauvegardée localement dans le stockage de l'extension.");
+    console.log("Publication et abonnés sauvegardés localement dans le stockage de l'extension.");
   } catch (e) {
     console.error("Erreur lors de la sauvegarde locale :", e);
   }
@@ -119,18 +132,64 @@ btnLaunchRoulette.addEventListener('click', async () => {
   }
 });
 
+// Événement : Extraire la liste des abonnés du créateur
+btnExtractFollowers.addEventListener('click', async () => {
+  if (!ownerId) return;
+  
+  statusMessage.textContent = "Initialisation de l'extraction des abonnés...";
+  btnExtractCurrent.disabled = true;
+  btnExtractFollowers.disabled = true;
+  btnLaunchRoulette.disabled = true;
+  followersStats.style.display = 'flex';
+  
+  try {
+    const response = await chrome.tabs.sendMessage(activeTab.id, { 
+      action: "extract_followers", 
+      userId: ownerId 
+    });
+    
+    if (response && response.success) {
+      currentFollowers = response.followers || [];
+      followerCountEl.textContent = currentFollowers.length;
+      statusMessage.textContent = `Extraction des abonnés réussie (${currentFollowers.length} abonnés récupérés).`;
+      await saveCommentsToStorage();
+    } else {
+      statusMessage.textContent = response ? response.error : "Erreur de récupération des abonnés.";
+    }
+  } catch (error) {
+    console.error("Erreur abonnés :", error);
+    statusMessage.textContent = "Erreur de communication : réactualisez l'onglet Instagram.";
+  } finally {
+    btnExtractCurrent.disabled = false;
+    btnExtractFollowers.disabled = false;
+    btnLaunchRoulette.disabled = false;
+  }
+});
+
 // Fonction utilitaire d'extraction de l'état actuel
 async function extractCurrentState() {
   statusMessage.textContent = "Extraction en cours...";
   btnExtractCurrent.disabled = true;
   btnLaunchRoulette.disabled = true;
+  btnExtractFollowers.style.display = 'none';
+  followersStats.style.display = 'none';
+  currentFollowers = [];
+  
   try {
     const response = await chrome.tabs.sendMessage(activeTab.id, { action: "extract_comments" });
     if (response && response.success) {
       currentComments = response.comments || [];
+      ownerId = response.ownerId || null;
+      ownerUsername = response.ownerUsername || null;
       updateUI();
       const methodStr = response.method === "graphql" ? "via API" : "via DOM";
       statusMessage.textContent = `Extraction réussie (${currentComments.length} participants, ${methodStr}).`;
+      
+      // Si on a l'ID du créateur, proposer l'extraction des abonnés
+      if (ownerId) {
+        btnExtractFollowers.style.display = 'flex';
+        btnExtractFollowers.textContent = `Extraire les abonnés de @${ownerUsername || 'créateur'}`;
+      }
     } else {
       statusMessage.textContent = response ? response.error : "Aucun commentaire trouvé.";
     }
