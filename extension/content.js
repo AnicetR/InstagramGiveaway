@@ -159,6 +159,12 @@ const INSTAGRAM_APP_ID = "936619743392459";
 
 // Fonction utilitaire pour déléguer les requêtes fetch au service worker d'arrière-plan (contournement CSP)
 function fetchFromBackground(url, headers = {}) {
+  // Extraire le token CSRF depuis les cookies du document si présent
+  const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+  if (match && match[1]) {
+    headers["X-CSRFToken"] = match[1];
+  }
+
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(
       {
@@ -236,7 +242,7 @@ async function convertCommentsAvatarsToBase64(commentsList) {
   console.log(`Conversion des avatars de ${commentsList.length} participants en Base64...`);
   const batchSize = 15;
   const processed = [];
-  
+
   for (let i = 0; i < commentsList.length; i += batchSize) {
     const batch = commentsList.slice(i, i + batchSize);
     const promises = batch.map(async (c) => {
@@ -247,7 +253,7 @@ async function convertCommentsAvatarsToBase64(commentsList) {
     const results = await Promise.all(promises);
     processed.push(...results);
   }
-  
+
   return processed;
 }
 
@@ -263,11 +269,11 @@ function getUsernameFromHref(href) {
       const relativePath = href.startsWith('/') ? href : '/' + href;
       urlObj = new URL(relativePath, window.location.origin);
     }
-    
+
     if (urlObj.hostname !== 'instagram.com' && urlObj.hostname !== 'www.instagram.com' && !href.startsWith('/')) {
       return null;
     }
-    
+
     const pathParts = urlObj.pathname.split('/').filter(p => p);
     if (pathParts.length > 0) {
       const username = pathParts[0];
@@ -276,7 +282,7 @@ function getUsernameFromHref(href) {
         return username;
       }
     }
-  } catch (e) {}
+  } catch (e) { }
   return null;
 }
 
@@ -293,7 +299,7 @@ function getOwnerUsernameFromDOM() {
         return username;
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   // Option 1 : Script JSON-LD de données structurées
   try {
@@ -305,7 +311,7 @@ function getOwnerUsernameFromDOM() {
         return authorName.replace("@", "").trim();
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   // Option 2 : Balises Meta og:title / twitter:title
   try {
@@ -315,7 +321,7 @@ function getOwnerUsernameFromDOM() {
       const match = content.match(/@([a-zA-Z0-9_\.]+)/);
       if (match) return match[1];
     }
-  } catch (e) {}
+  } catch (e) { }
 
   // Option 3 : Balise meta og:description
   try {
@@ -325,18 +331,18 @@ function getOwnerUsernameFromDOM() {
       const match = content.match(/@([a-zA-Z0-9_\.]+)/);
       if (match) return match[1];
     }
-  } catch (e) {}
-  
+  } catch (e) { }
+
   // Option 4 : Titre du document
   try {
     const title = document.title;
     let match = title.match(/\(@([a-zA-Z0-9_\.]+)\)/);
     if (match) return match[1];
-    
+
     match = title.match(/@([a-zA-Z0-9_\.]+)/);
     if (match) return match[1];
-  } catch (e) {}
-  
+  } catch (e) { }
+
   // Option 5 : Liens de profil dans le post header
   try {
     const headerLinks = Array.from(document.querySelectorAll('header a, article header a, [role="menuitem"] a, a[role="link"]'));
@@ -347,7 +353,7 @@ function getOwnerUsernameFromDOM() {
         return username;
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   // Option 6 : Premier lien de profil dans les commentaires / légende
   try {
@@ -356,8 +362,8 @@ function getOwnerUsernameFromDOM() {
       const username = getUsernameFromHref(firstCommentLink.getAttribute("href"));
       if (username) return username;
     }
-  } catch (e) {}
-  
+  } catch (e) { }
+
   return null;
 }
 
@@ -381,17 +387,17 @@ async function getProfileMetadata(username) {
     "X-IG-App-ID": INSTAGRAM_APP_ID,
     "X-Requested-With": "XMLHttpRequest"
   });
-  
+
   if (!response.ok) {
     throw new Error(`Erreur HTTP Instagram Profile : ${response.status}`);
   }
-  
+
   const data = await response.json();
   const user = data?.data?.user;
   if (!user) {
     throw new Error("Impossible de récupérer les détails du profil.");
   }
-  
+
   // Convertir l'avatar du créateur en Base64
   let avatarBase64 = "";
   try {
@@ -399,7 +405,7 @@ async function getProfileMetadata(username) {
   } catch (e) {
     console.warn("Échec de conversion de l'avatar du créateur :", e);
   }
-  
+
   return {
     id: user.id,
     username: `@${user.username}`,
@@ -415,6 +421,38 @@ function extractShortcode() {
   return m ? m[1] : null;
 }
 
+// Extraire le media ID numérique depuis le DOM
+function getMediaIdFromDOM() {
+  // Option 1 : Balise meta al:android:url (instagram://media?id=...)
+  const androidMeta = document.querySelector('meta[property="al:android:url"]');
+  if (androidMeta) {
+    const content = androidMeta.getAttribute('content') || '';
+    const match = content.match(/id=(\d+)/);
+    if (match) return match[1];
+  }
+
+  // Option 2 : Balise meta al:ios:url
+  const iosMeta = document.querySelector('meta[property="al:ios:url"]');
+  if (iosMeta) {
+    const content = iosMeta.getAttribute('content') || '';
+    const match = content.match(/id=(\d+)/);
+    if (match) return match[1];
+  }
+
+  // Option 3 : Rechercher dans les scripts (JSON embarqué)
+  const scripts = document.querySelectorAll('script');
+  for (const script of scripts) {
+    const text = script.textContent || '';
+    const match = text.match(/"media_id"\s*:\s*"(\d+)"/);
+    if (match) return match[1];
+
+    const match2 = text.match(/"mediaID"\s*:\s*"(\d+)"/);
+    if (match2) return match2[1];
+  }
+
+  return null;
+}
+
 // Fonction d'extraction GraphQL asynchrone avec pagination
 async function extractAllCommentsGraphQL() {
   const shortcode = extractShortcode();
@@ -428,8 +466,9 @@ async function extractAllCommentsGraphQL() {
   let cursor = null;
   let ownerId = null;
   let ownerUsername = null;
+  let mediaId = getMediaIdFromDOM();
 
-  console.log(`Début de l'extraction GraphQL pour le shortcode: ${shortcode}`);
+  console.log(`Début de l'extraction GraphQL pour le shortcode: ${shortcode}. Media ID trouvé dans le DOM: ${mediaId}`);
 
   while (hasNext) {
     const variables = {
@@ -453,9 +492,23 @@ async function extractAllCommentsGraphQL() {
     }
 
     const data = await response.json();
-    const media = data?.data?.shortcode_media;
+    let media = null;
+    if (data?.data) {
+      for (const key in data.data) {
+        if (data.data[key] && typeof data.data[key] === 'object') {
+          if ('edge_media_to_parent_comment' in data.data[key]) {
+            media = data.data[key];
+            break;
+          }
+        }
+      }
+    }
     if (!media) {
       throw new Error("Session Instagram invalide, expirée ou publication privée.");
+    }
+
+    if (!mediaId) {
+      mediaId = media.id;
     }
 
     // Récupérer les métadonnées du propriétaire
@@ -505,11 +558,136 @@ async function extractAllCommentsGraphQL() {
     }
   }
 
+  // Extraire les personnes ayant aimé la publication (likers)
+  let likers = [];
+  if (mediaId) {
+    try {
+      console.log("[Instagram Giveaway] Tentative d'extraction des likes via GraphQL...");
+      const gqlLikers = await extractLikersGraphQL(mediaId);
+      if (gqlLikers && gqlLikers.length > 0) {
+        likers = gqlLikers;
+        console.log(`[Instagram Giveaway] Extraction GraphQL des likes réussie: ${likers.length} J'aime.`);
+      } else {
+        console.log("[Instagram Giveaway] GraphQL Likes vide ou indisponible, repli sur l'API REST...");
+        likers = await extractLikers(mediaId);
+      }
+    } catch (e) {
+      console.warn("[Instagram Giveaway] Échec d'extraction des J'aime via GraphQL, repli sur l'API REST...", e);
+      try {
+        likers = await extractLikers(mediaId);
+      } catch (restErr) {
+        console.warn("[Instagram Giveaway] Échec d'extraction des J'aime via REST :", restErr);
+      }
+    }
+  }
+
+  // Mettre à jour has_liked pour chaque participant
+  if (likers.length > 0) {
+    const likerUsernames = new Set(likers.map(l => l.username.replace("@", "").toLowerCase().trim()));
+    for (const c of comments) {
+      const cleanUsername = c.username.replace("@", "").toLowerCase().trim();
+      c.has_liked = likerUsernames.has(cleanUsername);
+    }
+  } else {
+    // Si l'extraction des likes échoue ou renvoie vide, on conserve true par sécurité
+    for (const c of comments) {
+      c.has_liked = true;
+    }
+  }
+
   return {
     comments: comments,
+    likers: likers,
     ownerId: ownerId,
     ownerUsername: ownerUsername
   };
+}
+
+// Fonction d'extraction des personnes ayant aimé la publication (likers) avec pagination
+async function extractLikers(mediaId) {
+  if (!mediaId) return [];
+  console.log(`Début de l'extraction des likes pour le média ID: ${mediaId}`);
+
+  const likers = [];
+  let hasNext = true;
+  let maxId = null;
+  let pageCount = 0;
+  const maxPages = 15; // Limite de 15 pages (~1500 likes) pour éviter le rate limit
+
+  const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+  const csrfToken = match ? match[1] : "";
+
+  const headers = {
+    "X-IG-App-ID": INSTAGRAM_APP_ID,
+    "X-Requested-With": "XMLHttpRequest"
+  };
+  if (csrfToken) {
+    headers["X-CSRFToken"] = csrfToken;
+  }
+
+  while (hasNext && pageCount < maxPages) {
+    let url = `https://www.instagram.com/api/v1/media/${mediaId}/likers/?count=1000`;
+    if (maxId) {
+      url += `&max_id=${encodeURIComponent(maxId)}`;
+    }
+
+    let pageUsers = [];
+    let nextMaxId = null;
+
+    // Option 1 : Fetch direct (Same-Origin)
+    try {
+      console.log(`[Page ${pageCount + 1}] Extraction des J'aime en Direct...`);
+      const response = await fetch(url, { headers });
+      if (response.ok) {
+        const data = await response.json();
+        pageUsers = data?.users || [];
+        nextMaxId = data?.next_max_id || null;
+      } else {
+        console.warn(`Fetch Direct page ${pageCount + 1} a échoué: ${response.status}`);
+      }
+    } catch (e) {
+      console.warn(`Fetch Direct exception page ${pageCount + 1}:`, e);
+    }
+
+    // Option 2 : Fallback via l'arrière-plan
+    if (pageUsers.length === 0) {
+      try {
+        console.log(`[Page ${pageCount + 1}] Fallback extraction J'aime via l'arrière-plan...`);
+        const response = await fetchFromBackground(url, headers);
+        if (response.ok) {
+          const data = await response.json();
+          pageUsers = data?.users || [];
+          nextMaxId = data?.next_max_id || null;
+        }
+      } catch (e) {
+        console.error(`Background Fetch exception page ${pageCount + 1}:`, e);
+      }
+    }
+
+    if (pageUsers.length === 0) {
+      break;
+    }
+
+    for (const u of pageUsers) {
+      likers.push({
+        username: `@${u.username}`,
+        avatar: u.profile_pic_url || `https://i.pravatar.cc/150?u=${u.username}`
+      });
+    }
+
+    console.log(`[Page ${pageCount + 1}] Récupéré ${pageUsers.length} likes (Total: ${likers.length})`);
+
+    maxId = nextMaxId;
+    hasNext = !!maxId;
+    pageCount++;
+
+    if (hasNext && pageCount < maxPages) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+
+  console.log(`Extraction des likes terminée : ${likers.length} likes récupérés.`);
+  return likers;
 }
 
 // Fonction d'extraction des abonnés du créateur (limité à 10 000 pour la sécurité)
@@ -567,6 +745,207 @@ async function extractFollowersGraphQL(userId) {
   return followers;
 }
 
+// Fonction de recherche résiliente autour de l'occurrence du nom de la requête
+function findQueryIdResilient(text, queryName) {
+  let idx = text.indexOf(queryName);
+  while (idx !== -1) {
+    const start = Math.max(0, idx - 250);
+    const end = Math.min(text.length, idx + queryName.length + 250);
+    const windowText = text.substring(start, end);
+
+    // 1. Chercher doc_id (12-22 chiffres)
+    const docIdMatch = windowText.match(/(?:id|doc_id|queryId)\s*:\s*["']?(\d{12,22})["']?/i);
+    if (docIdMatch) {
+      return docIdMatch[1];
+    }
+    
+    // 2. Chercher query_hash (32 caractères hexadécimaux)
+    const hashMatch = windowText.match(/(?:query_hash|id|hash)\s*:\s*["']([a-fA-F0-9]{32})["']/i);
+    if (hashMatch) {
+      return hashMatch[1];
+    }
+    
+    idx = text.indexOf(queryName, idx + 1);
+  }
+  return null;
+}
+
+// Fonction de recherche dynamique du doc_id / query_hash d'une requête GraphQL
+function findQueryId(queryName) {
+  const scripts = Array.from(document.querySelectorAll('script'));
+  for (const script of scripts) {
+    if (!script.src && script.textContent) {
+      const id = findQueryIdResilient(script.textContent, queryName);
+      if (id) {
+        console.log(`[Instagram Giveaway] Trouvé identifiant pour ${queryName} dans script inline :`, id);
+        return id;
+      }
+    }
+  }
+  return null;
+}
+
+// Recherche de l'identifiant de requête GraphQL dans les scripts externes
+async function findQueryIdFromExternal(queryName) {
+  const scripts = Array.from(document.querySelectorAll('script')).filter(s => s.src && (s.src.includes('instagram.com') || s.src.includes('cdninstagram.com') || s.src.includes('fbcdn.net')));
+  const promises = scripts.map(async (script) => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const response = await fetch(script.src, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (response.ok) {
+        const text = await response.text();
+        const id = findQueryIdResilient(text, queryName);
+        if (id) {
+          console.log(`[Instagram Giveaway] Trouvé identifiant pour ${queryName} dans script externe :`, id);
+          return id;
+        }
+      }
+    } catch (e) {
+      // Ignorer
+    }
+    return null;
+  });
+
+  const results = await Promise.all(promises);
+  return results.find(r => r !== null) || null;
+}
+
+// Fonction d'extraction des J'aime via GraphQL
+async function extractLikersGraphQL(mediaId) {
+  if (!mediaId) return null;
+  
+  // Chercher l'identifiant de la requête des J'aime (LikedBy list)
+  let queryId = findQueryId("PolarisPostLikedByListDialogQuery") || 
+                findQueryId("LikedByListDialogQuery") ||
+                findQueryId("LikesListQuery");
+                
+  if (!queryId) {
+    console.log("[Instagram Giveaway] Recherche de l'identifiant Likes GraphQL dans les scripts externes...");
+    queryId = await findQueryIdFromExternal("PolarisPostLikedByListDialogQuery") || 
+              await findQueryIdFromExternal("LikedByListDialogQuery") ||
+              await findQueryIdFromExternal("LikesListQuery");
+  }
+
+  if (!queryId) {
+    console.warn("[Instagram Giveaway] Aucun identifiant de requête GraphQL de J'aime trouvé.");
+    return null;
+  }
+
+  console.log(`[Instagram Giveaway] Début de l'extraction des likes via GraphQL avec ID: ${queryId}`);
+  
+  const likers = [];
+  let hasNext = true;
+  let cursor = null;
+  let pageCount = 0;
+  const maxPages = 20; // ~1000 likes max
+
+  const isNumeric = /^\d+$/.test(queryId);
+  const paramName = isNumeric ? "doc_id" : "query_hash";
+
+  const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+  const csrfToken = match ? match[1] : "";
+
+  const headers = {
+    "X-IG-App-ID": INSTAGRAM_APP_ID,
+    "X-Requested-With": "XMLHttpRequest"
+  };
+  if (csrfToken) {
+    headers["X-CSRFToken"] = csrfToken;
+  }
+
+  while (hasNext && pageCount < maxPages) {
+    const variables = {
+      mediaId: mediaId,
+      first: 50
+    };
+    if (cursor) {
+      variables.after = cursor;
+    }
+
+    const varStr = encodeURIComponent(JSON.stringify(variables));
+    const url = `https://www.instagram.com/graphql/query/?${paramName}=${queryId}&variables=${varStr}`;
+
+    let pageUsers = [];
+    let endCursor = null;
+    let hasNextPage = false;
+    let data = null;
+
+    // Option 1 : Fetch Direct (Same-Origin)
+    try {
+      console.log(`[Page Likes GraphQL ${pageCount + 1}] Fetch Direct...`);
+      const response = await fetch(url, { headers });
+      if (response.ok) {
+        data = await response.json();
+      } else {
+        console.warn(`[Page Likes GraphQL ${pageCount + 1}] Fetch Direct a échoué: ${response.status}`);
+      }
+    } catch (e) {
+      console.warn(`[Page Likes GraphQL ${pageCount + 1}] Fetch Direct exception:`, e);
+    }
+
+    // Option 2 : Fallback via l'arrière-plan
+    if (!data) {
+      try {
+        console.log(`[Page Likes GraphQL ${pageCount + 1}] Fallback Fetch via l'arrière-plan...`);
+        const response = await fetchFromBackground(url, headers);
+        if (response.ok) {
+          data = await response.json();
+        }
+      } catch (e) {
+        console.warn(`[Page Likes GraphQL ${pageCount + 1}] Background Fetch exception:`, e);
+      }
+    }
+
+    if (data) {
+      let edgeLikedBy = null;
+      if (data.data) {
+        for (const key in data.data) {
+          if (data.data[key] && typeof data.data[key] === 'object') {
+            if ('edge_liked_by' in data.data[key]) {
+              edgeLikedBy = data.data[key].edge_liked_by;
+              break;
+            }
+          }
+        }
+      }
+      const edges = edgeLikedBy?.edges || [];
+      const pageInfo = edgeLikedBy?.page_info || {};
+
+      for (const edge of edges) {
+        const u = edge?.node;
+        if (u && u.username) {
+          pageUsers.push({
+            username: `@${u.username}`,
+            avatar: u.profile_pic_url || `https://i.pravatar.cc/150?u=${u.username}`
+          });
+        }
+      }
+
+      endCursor = pageInfo.end_cursor || null;
+      hasNextPage = pageInfo.has_next_page || false;
+    }
+
+    if (pageUsers.length === 0) {
+      break;
+    }
+
+    likers.push(...pageUsers);
+    console.log(`[Page Likes GraphQL ${pageCount + 1}] Récupéré ${pageUsers.length} likes (Total: ${likers.length})`);
+
+    cursor = endCursor;
+    hasNext = hasNextPage && !!cursor;
+    pageCount++;
+
+    if (hasNext && pageCount < maxPages) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+
+  return likers.length > 0 ? likers : null;
+}
+
 // Écouteur de messages (extraction hybride API + Fallback DOM + Abonnés + Profil)
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "extract_comments") {
@@ -575,16 +954,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (res.comments.length === 0) {
           console.warn("L'extraction GraphQL n'a renvoyé aucun résultat, tentative avec le DOM...");
           let domComments = performExtraction();
-          
+
           // Récupérer les informations du propriétaire depuis le DOM si indisponibles
           const ownerUsername = getOwnerUsernameFromDOM();
-          
+
           domComments = await convertCommentsAvatarsToBase64(domComments);
-          sendResponse({ 
-            success: true, 
-            comments: domComments, 
+          sendResponse({
+            success: true,
+            comments: domComments,
+            likers: [],
             ownerUsername: ownerUsername,
-            method: "dom" 
+            method: "dom"
           });
         } else {
           const base64Comments = await convertCommentsAvatarsToBase64(res.comments);
@@ -592,12 +972,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           if (!finalOwnerUsername) {
             finalOwnerUsername = getOwnerUsernameFromDOM();
           }
-          sendResponse({ 
-            success: true, 
-            comments: base64Comments, 
-            ownerId: res.ownerId, 
-            ownerUsername: finalOwnerUsername, 
-            method: "graphql" 
+          sendResponse({
+            success: true,
+            comments: base64Comments,
+            likers: res.likers || [],
+            ownerId: res.ownerId,
+            ownerUsername: finalOwnerUsername,
+            method: "graphql"
           });
         }
       })
@@ -605,16 +986,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.error("L'extraction GraphQL a échoué, tentative de fallback DOM...", err);
         try {
           let domComments = performExtraction();
-          
+
           // Récupérer les informations du propriétaire depuis le DOM
           const ownerUsername = getOwnerUsernameFromDOM();
-          
+
           domComments = await convertCommentsAvatarsToBase64(domComments);
-          sendResponse({ 
-            success: true, 
-            comments: domComments, 
+          sendResponse({
+            success: true,
+            comments: domComments,
+            likers: [],
             ownerUsername: ownerUsername,
-            method: "dom_fallback" 
+            method: "dom_fallback"
           });
         } catch (domErr) {
           sendResponse({ success: false, error: `GraphQL: ${err.message} | DOM: ${domErr.message}` });
@@ -627,7 +1009,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: false, error: "Impossible de déterminer le nom d'utilisateur du profil depuis l'URL." });
       return;
     }
-    
+
     getProfileMetadata(username)
       .then(metadata => {
         sendResponse({ success: true, metadata: metadata });

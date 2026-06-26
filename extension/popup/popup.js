@@ -6,6 +6,7 @@ let isProfilePage = false;
 
 // Variables pour l'état Publication
 let currentComments = [];
+let currentLikers = [];
 let ownerUsername = null;
 
 // Variables pour l'état Profil
@@ -22,6 +23,8 @@ const btnLaunchRoulette = document.getElementById('btn-launch-roulette');
 const postUrlEl = document.getElementById('post-url');
 const commentCountEl = document.getElementById('comment-count');
 const entrantListEl = document.getElementById('entrant-list');
+const likeCountEl = document.getElementById('like-count');
+const likeListEl = document.getElementById('like-list');
 const btnExtractCurrent = document.getElementById('btn-extract-current');
 const statusMessage = document.getElementById('status-message');
 
@@ -102,9 +105,10 @@ async function initPostView(url) {
     const postData = scrapedPosts[urlDisplay];
     if (postData) {
       currentComments = postData.users || [];
+      currentLikers = postData.likers || [];
       ownerUsername = postData.ownerUsername || null;
       updatePostUI();
-      statusMessage.textContent = `Données chargées (${currentComments.length} commentaires extraits précédemment).`;
+      statusMessage.textContent = `Données chargées (${currentComments.length} commentaires et ${currentLikers.length} likes extraits précédemment).`;
     }
   } catch (e) {
     console.error(e);
@@ -120,12 +124,13 @@ btnExtractCurrent.addEventListener('click', async () => {
     const response = await chrome.tabs.sendMessage(activeTab.id, { action: "extract_comments" });
     if (response && response.success) {
       currentComments = response.comments || [];
+      currentLikers = response.likers || [];
       ownerUsername = response.ownerUsername ? `@${response.ownerUsername.replace('@', '')}` : null;
       
       updatePostUI();
       
       const methodStr = response.method.startsWith("graphql") ? "via API" : "via DOM";
-      statusMessage.textContent = `Extraction réussie (${currentComments.length} participants, ${methodStr}).`;
+      statusMessage.textContent = `Extraction réussie (${currentComments.length} commentaires et ${currentLikers.length} likes, ${methodStr}).`;
       
       await savePostToStorage();
     } else {
@@ -150,6 +155,7 @@ async function savePostToStorage() {
       url: postUrl,
       ownerUsername: ownerUsername,
       users: currentComments,
+      likers: currentLikers,
       scrapedAt: Date.now()
     };
     
@@ -162,6 +168,7 @@ async function savePostToStorage() {
 
 function updatePostUI() {
   commentCountEl.textContent = currentComments.length;
+  likeCountEl.textContent = currentLikers.length;
   
   if (currentComments.length > 0) {
     btnLaunchRoulette.disabled = false;
@@ -208,6 +215,48 @@ function updatePostUI() {
     btnLaunchRoulette.disabled = true;
     btnLaunchRoulette.textContent = "Lancer le Tirage";
     entrantListEl.style.display = 'none';
+  }
+
+  if (currentLikers.length > 0) {
+    likeListEl.innerHTML = '';
+    likeListEl.style.display = 'flex';
+    
+    const previewCount = Math.min(5, currentLikers.length);
+    for (let i = 0; i < previewCount; i++) {
+      const item = currentLikers[i];
+      const div = document.createElement('div');
+      div.className = 'entrant-item';
+      
+      const img = document.createElement('img');
+      img.className = 'entrant-avatar';
+      img.src = item.avatar;
+      img.onerror = () => { img.src = `https://i.pravatar.cc/50?u=${item.username}`; };
+      
+      const usernameSpan = document.createElement('span');
+      usernameSpan.className = 'entrant-username';
+      usernameSpan.textContent = item.username;
+      
+      const likeTextSpan = document.createElement('span');
+      likeTextSpan.className = 'entrant-comment';
+      likeTextSpan.textContent = "Mention J'aime ❤️";
+      
+      div.appendChild(img);
+      div.appendChild(usernameSpan);
+      div.appendChild(likeTextSpan);
+      likeListEl.appendChild(div);
+    }
+    
+    if (currentLikers.length > 5) {
+      const moreDiv = document.createElement('div');
+      moreDiv.style.fontSize = '9px';
+      moreDiv.style.color = '#6b7280';
+      moreDiv.style.textAlign = 'center';
+      moreDiv.style.paddingTop = '2px';
+      moreDiv.textContent = `... et ${currentLikers.length - 5} autres mentions J'aime`;
+      likeListEl.appendChild(moreDiv);
+    }
+  } else {
+    likeListEl.style.display = 'none';
   }
 }
 

@@ -284,8 +284,8 @@ function generateMockUsers(count: number) {
       username: `@${username}`,
       avatar: `https://i.pravatar.cc/150?u=${username}`,
       comment: MOCK_COMMENTS[Math.floor(Math.random() * MOCK_COMMENTS.length)],
-      has_liked: true,
-      is_follower: true
+      has_liked: Math.random() > 0.35,
+      is_follower: Math.random() > 0.40
     })
   }
   return users
@@ -335,7 +335,9 @@ function launchDraw() {
     // Vérification réelle si la liste des abonnés a été extraite par l'extension
     let is_follower = true
     if (checkFollowers.value) {
-      if (selectedAccount.value && selectedAccount.value.followers && Array.isArray(selectedAccount.value.followers)) {
+      if (u.is_follower !== undefined) {
+        is_follower = u.is_follower
+      } else if (selectedAccount.value && selectedAccount.value.followers && Array.isArray(selectedAccount.value.followers)) {
         is_follower = selectedAccount.value.followers.includes(u.username)
       } else {
         // Fallback simulé si la liste n'a pas été extraite
@@ -343,8 +345,8 @@ function launchDraw() {
       }
     }
     
-    // likes est toujours simulé localement
-    const has_liked = checkLikes.value ? (Math.random() > 0.35) : true
+    // likes extraits réellement par l'extension
+    const has_liked = checkLikes.value ? (u.has_liked !== undefined ? u.has_liked : true) : true
     
     return {
       ...u,
