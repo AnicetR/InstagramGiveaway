@@ -59,35 +59,7 @@ export const useGiveawayStore = defineStore('giveaway', () => {
     status.value = newStatus
   }
 
-  async function startExtraction(targetUrl: string) {
-    url.value = targetUrl
-    status.value = 'fetching'
-    errorMsg.value = null
 
-    try {
-      const response = await $fetch<{ success: boolean; data: Entrant[]; error?: string }>('/api/giveaway/extract', {
-        method: 'POST',
-        body: { url: targetUrl }
-      })
-
-      if (response && response.success && Array.isArray(response.data)) {
-        users.value = response.data
-        originalUsers.value = [...response.data]
-
-        if (users.value.length === 0) {
-          throw new Error('Aucun participant trouvé pour cette publication Instagram.')
-        }
-
-        status.value = 'revealing'
-      } else {
-        throw new Error(response.error || 'Échec de l\'extraction des données du concours.')
-      }
-    } catch (err: any) {
-      status.value = 'error'
-      errorMsg.value = err.message || 'Une erreur inattendue est survenue lors de l\'extraction.'
-      console.error('Extraction Error:', err)
-    }
-  }
 
   function purgeNonLikers() {
     users.value = users.value.filter(u => u.has_liked)
@@ -118,7 +90,6 @@ export const useGiveawayStore = defineStore('giveaway', () => {
     originalUsers,
     reset,
     setStatus,
-    startExtraction,
     purgeNonLikers,
     purgeNonFollowers,
     selectRandomWinner
