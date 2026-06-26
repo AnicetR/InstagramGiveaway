@@ -93,217 +93,40 @@
               <div v-if="store.status === 'idle'" key="idle" class="w-full h-full">
                 
                 <!-- Step 1: Loading / Waiting for Extension -->
-                <div v-if="!isExtensionLoaded" class="flex flex-col items-center justify-center text-center px-6 h-full space-y-4">
-                  <div class="relative w-12 h-12">
-                    <div class="absolute inset-0 rounded-full border-4 border-white/[0.05]"></div>
-                    <div class="absolute inset-0 rounded-full border-4 border-t-emerald-500 border-r-emerald-500 animate-spin shadow-[0_0_15px_rgba(16,185,129,0.3)]"></div>
-                  </div>
-                  <h3 class="text-sm font-bold font-outfit text-slate-200">En attente de l'extension...</h3>
-                  <p class="text-[10px] text-slate-400 max-w-[220px] leading-relaxed">
-                    Installez l'extension compagnon pour extraire gratuitement les commentaires depuis Instagram.
-                  </p>
-                  
-                  <!-- Download links -->
-                  <div class="w-full space-y-2 pt-2">
-                    <a 
-                      href="/downloads/extension-chrome.zip" 
-                      download="roulette-compagnon-chrome.zip"
-                      class="w-full flex items-center justify-center gap-2 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 text-slate-200 text-[10px] py-2.5 px-4 rounded-xl transition font-semibold"
-                    >
-                      <Icon name="mdi:google-chrome" class="w-4 h-4 text-emerald-400" />
-                      Télécharger pour Chrome (.zip)
-                    </a>
-                    <a 
-                      href="/downloads/extension-firefox.zip" 
-                      download="roulette-compagnon-firefox.zip"
-                      class="w-full flex items-center justify-center gap-2 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/10 text-slate-200 text-[10px] py-2.5 px-4 rounded-xl transition font-semibold"
-                    >
-                      <Icon name="mdi:firefox" class="w-4 h-4 text-orange-400" />
-                      Télécharger pour Firefox (.zip)
-                    </a>
-                  </div>
-                  
-                  <button 
-                    @click="loadDemoData"
-                    class="text-slate-500 hover:text-slate-300 text-[9px] underline transition-all font-semibold pt-1"
-                  >
-                    Activer le mode Démo
-                  </button>
-                </div>
+                <CompanionLoader
+                  v-if="!isExtensionLoaded"
+                  @load-demo="loadDemoData"
+                />
                 
                 <!-- Step 2: List of Scraped Accounts (Select account first) -->
-                <div v-else-if="!selectedAccount" class="flex flex-col h-full px-5 py-6 justify-between select-none">
-                  <div class="flex-1 flex flex-col min-h-0">
-                    <div class="text-center space-y-1 mb-5 flex-shrink-0">
-                      <h3 class="text-base font-bold font-outfit text-slate-100">Sélectionner un Compte</h3>
-                      <p class="text-[10px] text-slate-400">Comptes avec abonnés extraits</p>
-                    </div>
-                    
-                    <div class="flex-1 overflow-y-auto pr-1 space-y-2.5 min-h-0">
-                      <div v-if="scrapedAccounts.length === 0" class="flex flex-col items-center justify-center py-16 text-center space-y-3">
-                        <div class="w-10 h-10 rounded-full bg-white/[0.02] border border-white/5 flex items-center justify-center text-slate-500">
-                          👥
-                        </div>
-                        <p class="text-[10px] text-slate-500 max-w-[180px] leading-relaxed">
-                          Aucun compte créateur importé. Allez sur le profil du créateur dans Instagram et cliquez sur l'extension pour extraire ses abonnés.
-                        </p>
-                      </div>
-                      
-                      <div 
-                        v-else
-                        v-for="account in scrapedAccounts" 
-                        :key="account.username"
-                        class="bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 rounded-2xl p-3 flex items-center justify-between transition cursor-pointer"
-                        @click="selectAccount(account)"
-                      >
-                        <div class="flex items-center gap-2.5 flex-1 min-w-0 pr-2">
-                          <img :src="account.avatar" class="w-8 h-8 rounded-full object-cover border border-slate-700" />
-                          <div class="flex-1 min-w-0">
-                            <div class="text-[11px] font-bold text-sky-400 truncate">{{ account.username }}</div>
-                            <div class="text-[9px] text-slate-455 mt-0.5">
-                              <span>👥 {{ account.followers?.length || 0 }} abonnés</span>
-                            </div>
-                          </div>
-                        </div>
-                        <button 
-                          @click.stop="deleteAccount(account.username)"
-                          class="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 hover:border-red-500/40 text-red-400 transition"
-                        >
-                          <Icon name="mdi:trash-can-outline" class="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <AccountSelection
+                  v-else-if="!selectedAccount"
+                  :accounts="scrapedAccounts"
+                  @select="selectAccount"
+                  @delete="deleteAccount"
+                />
 
                 <!-- Step 3: List of Scraped Posts for Selected Account -->
-                <div v-else-if="!selectedPost" class="flex flex-col h-full px-5 py-6 justify-between select-none">
-                  <div class="flex-1 flex flex-col min-h-0">
-                    <div class="text-center space-y-1 mb-5 flex-shrink-0">
-                      <div class="flex items-center justify-center gap-1.5 mb-1 bg-white/[0.03] border border-white/5 py-1 px-3.5 rounded-full w-max mx-auto">
-                        <img :src="selectedAccount.avatar" class="w-4 h-4 rounded-full object-cover border border-slate-700" />
-                        <span class="text-[9px] font-black text-sky-400">{{ selectedAccount.username }}</span>
-                      </div>
-                      <h3 class="text-base font-bold font-outfit text-slate-100">Sélectionner un Concours</h3>
-                      <p class="text-[10px] text-slate-400">Publications de commentaires associées</p>
-                    </div>
-                    
-                    <div class="flex-1 overflow-y-auto pr-1 space-y-2.5 min-h-0">
-                      <div v-if="filteredPosts.length === 0" class="flex flex-col items-center justify-center py-16 text-center space-y-3">
-                        <div class="w-10 h-10 rounded-full bg-white/[0.02] border border-white/5 flex items-center justify-center text-slate-500">
-                          🎰
-                        </div>
-                        <p class="text-[10px] text-slate-500 max-w-[180px] leading-relaxed">
-                          Aucun post importé pour ce compte. Allez sur une publication de ce créateur dans Instagram et cliquez sur l'extension.
-                        </p>
-                      </div>
-                      
-                      <div 
-                        v-else
-                        v-for="post in filteredPosts" 
-                        :key="post.url"
-                        class="bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 rounded-2xl p-3 flex items-center justify-between transition cursor-pointer"
-                        @click="selectPost(post)"
-                      >
-                        <div class="flex-1 min-w-0 pr-2">
-                          <div class="text-[11px] font-bold text-emerald-400 truncate">{{ formatPostUrl(post.url) }}</div>
-                          <div class="flex gap-2 text-[9px] text-slate-400 mt-1">
-                            <span>👥 {{ post.users.length }} commentaires</span>
-                            <span>⏱️ {{ formatTimeAgo(post.scrapedAt) }}</span>
-                          </div>
-                        </div>
-                        <button 
-                          @click.stop="deletePost(post.url)"
-                          class="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 hover:border-red-500/40 text-red-400 transition"
-                        >
-                          <Icon name="mdi:trash-can-outline" class="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div class="pt-3">
-                    <button 
-                      @click="selectAccount(null)"
-                      class="w-full bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 text-slate-300 font-semibold py-3 px-4 rounded-2xl transition text-xs"
-                    >
-                      Retour aux comptes
-                    </button>
-                  </div>
-                </div>
+                <PostSelection
+                  v-else-if="!selectedPost"
+                  :selectedAccount="selectedAccount"
+                  :posts="filteredPosts"
+                  @select="selectPost"
+                  @delete="deletePost"
+                  @back="selectAccount(null)"
+                />
 
                 <!-- Step 4: Setup Conditions & Start Draw -->
-                <div v-else class="flex flex-col h-full px-5 py-6 justify-between select-none">
-                  <div class="space-y-6">
-                    <div class="text-center space-y-1">
-                      <h3 class="text-base font-bold font-outfit text-slate-200">Conditions du Tirage</h3>
-                      <p class="text-[10px] text-slate-400 truncate max-w-full px-4">{{ formatPostUrl(selectedPost.url) }}</p>
-                    </div>
-                    
-                    <div class="bg-emerald-500/5 border border-emerald-500/15 rounded-2xl p-3.5 text-center space-y-2">
-                      <div class="flex items-center justify-center gap-2">
-                        <img :src="selectedAccount.avatar" class="w-8 h-8 rounded-full object-cover border border-slate-700" />
-                        <div class="text-left">
-                          <div class="text-[11px] font-bold text-sky-400">{{ selectedAccount.username }}</div>
-                          <div class="text-[9px] text-emerald-400 font-bold flex items-center gap-1">
-                            <span>✓</span> {{ selectedAccount.followers?.length || 0 }} abonnés importés
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div class="border-t border-white/5 pt-2 flex items-center justify-between text-[10px] text-slate-400">
-                        <span>Participants chargés :</span>
-                        <span class="font-bold text-emerald-450">{{ selectedPost.users.length }}</span>
-                      </div>
-                    </div>
-                    
-                    <!-- Eligibility Rules Toggles inside the simulator -->
-                    <div class="space-y-3">
-                      <button 
-                        @click="toggleRule('likes')" 
-                        class="w-full flex items-center justify-between p-3.5 rounded-2xl border text-xs font-semibold transition-all duration-300"
-                        :class="checkLikes 
-                          ? 'bg-rose-500/15 border-rose-500/30 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.1)] backdrop-blur-md' 
-                          : 'bg-white/[0.02] border-white/5 text-slate-500'"
-                      >
-                        <div class="flex items-center gap-2">
-                          <Icon :name="checkLikes ? 'mdi:heart' : 'mdi:heart-outline'" class="w-4 h-4" />
-                          Doit aimer la publication
-                        </div>
-                        <span v-if="checkLikes" class="text-[9px] bg-rose-500/20 px-2 py-0.5 rounded-full font-mono font-bold">Actif</span>
-                      </button>
-                      
-                      <button 
-                        @click="toggleRule('followers')" 
-                        class="w-full flex items-center justify-between p-3.5 rounded-2xl border text-xs font-semibold transition-all duration-300"
-                        :class="checkFollowers 
-                          ? 'bg-sky-500/15 border-sky-500/30 text-sky-300 shadow-[0_0_15px_rgba(14,165,233,0.1)] backdrop-blur-md' 
-                          : 'bg-white/[0.02] border-white/5 text-slate-500'"
-                      >
-                        <div class="flex items-center gap-2">
-                          <Icon :name="checkFollowers ? 'mdi:account-star' : 'mdi:account-outline'" class="w-4 h-4" />
-                          Doit être abonné
-                        </div>
-                        <span v-if="checkFollowers" class="text-[9px] bg-sky-500/20 px-2 py-0.5 rounded-full font-mono font-bold">Actif</span>
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div class="space-y-2">
-                    <button 
-                      @click="launchDraw"
-                      class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold py-3.5 px-4 rounded-2xl transition transform active:scale-[0.98] shadow-lg shadow-emerald-500/10 text-xs font-mono tracking-wider uppercase"
-                    >
-                      Lancer le Tirage
-                    </button>
-                    <button 
-                      @click="selectedPost = null"
-                      class="w-full bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 text-slate-350 font-semibold py-3 px-4 rounded-2xl transition text-xs"
-                    >
-                      Retour aux publications
-                    </button>
-                  </div>
-                </div>
+                <DrawSetup
+                  v-else
+                  :selectedAccount="selectedAccount"
+                  :selectedPost="selectedPost"
+                  :checkLikes="checkLikes"
+                  :checkFollowers="checkFollowers"
+                  @toggle-rule="toggleRule"
+                  @launch="launchDraw"
+                  @back="selectPost(null)"
+                />
               </div>
 
               <!-- States: Reveal, Purges, and Morphing Grid -->
@@ -369,6 +192,10 @@ import { ref, watch, onMounted, computed } from 'vue'
 import { useGiveawayStore } from '~/stores/giveaway'
 import UserGrid from '~/components/UserGrid.vue'
 import RouletteTape from '~/components/RouletteTape.vue'
+import AccountSelection from '~/components/AccountSelection.vue'
+import PostSelection from '~/components/PostSelection.vue'
+import DrawSetup from '~/components/DrawSetup.vue'
+import CompanionLoader from '~/components/CompanionLoader.vue'
 import confetti from 'canvas-confetti'
 
 const store = useGiveawayStore()
@@ -528,7 +355,7 @@ function loadDemoData() {
 function launchDraw() {
   if (!selectedPost.value) return
 
-  const users = selectedPost.value.users.map((u: any) => {
+  const users = (selectedPost.value.users || []).map((u: any) => {
     // Vérification réelle si la liste des abonnés a été extraite par l'extension
     let is_follower = true
     if (checkFollowers.value) {
