@@ -94,38 +94,38 @@
                 
                 <!-- Step 1: Loading / Waiting for Extension -->
                 <CompanionLoader
-                  v-if="!isExtensionLoaded"
-                  @load-demo="loadDemoData"
+                  v-if="!store.isExtensionLoaded"
+                  @load-demo="giveawayService.loadDemoData()"
                 />
                 
                 <!-- Step 2: List of Scraped Accounts (Select account first) -->
                 <AccountSelection
-                  v-else-if="!selectedAccount"
-                  :accounts="scrapedAccounts"
-                  @select="selectAccount"
-                  @delete="deleteAccount"
+                  v-else-if="!store.selectedAccount"
+                  :accounts="store.scrapedAccounts"
+                  @select="(account) => store.selectAccount(account)"
+                  @delete="(username) => giveawayService.deleteAccount(username)"
                 />
 
                 <!-- Step 3: List of Scraped Posts for Selected Account -->
                 <PostSelection
-                  v-else-if="!selectedPost"
-                  :selectedAccount="selectedAccount"
-                  :posts="filteredPosts"
-                  @select="selectPost"
-                  @delete="deletePost"
-                  @back="selectAccount(null)"
+                  v-else-if="!store.selectedPost"
+                  :selectedAccount="store.selectedAccount"
+                  :posts="store.filteredPosts"
+                  @select="(post) => store.selectPost(post)"
+                  @delete="(url) => giveawayService.deletePost(url)"
+                  @back="store.selectAccount(null)"
                 />
 
                 <!-- Step 4: Setup Conditions & Start Draw -->
                 <DrawSetup
                   v-else
-                  :selectedAccount="selectedAccount"
-                  :selectedPost="selectedPost"
-                  :checkLikes="checkLikes"
-                  :checkFollowers="checkFollowers"
-                  @toggle-rule="toggleRule"
-                  @launch="launchDraw"
-                  @back="selectPost(null)"
+                  :selectedAccount="store.selectedAccount"
+                  :selectedPost="store.selectedPost"
+                  :checkLikes="store.checkLikes"
+                  :checkFollowers="store.checkFollowers"
+                  @toggle-rule="(rule) => store.toggleRule(rule)"
+                  @launch="store.startDrawing()"
+                  @back="store.selectPost(null)"
                 />
               </div>
 
@@ -188,8 +188,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useGiveawayStore } from '~/stores/giveaway'
+import { giveawayService } from '~/services/giveawayService'
 import UserGrid from '~/components/UserGrid.vue'
 import RouletteTape from '~/components/RouletteTape.vue'
 import AccountSelection from '~/components/AccountSelection.vue'
@@ -207,168 +208,10 @@ let localConfetti: any = null
 const showInstagramOverlay = ref(false)
 const showSafeGuide = ref(false)
 
-// Extension detection and list
-const isExtensionLoaded = ref(false)
-const scrapedAccounts = ref<any[]>([])
-const selectedAccount = ref<any | null>(null)
-const scrapedPosts = ref<any[]>([])
-const selectedPost = ref<any | null>(null)
-
-// Rules Setup Toggles
-const checkLikes = ref(true)
-const checkFollowers = ref(true)
-
-function toggleRule(rule: 'likes' | 'followers') {
-  if (rule === 'likes') {
-    checkLikes.value = !checkLikes.value
-  } else if (rule === 'followers') {
-    checkFollowers.value = !checkFollowers.value
-  }
-}
-
-// Computed property to filter posts by selected account
-const filteredPosts = computed(() => {
-  if (!selectedAccount.value) return []
-  return scrapedPosts.value.filter(post => {
-    if (!post.ownerUsername) return true // Fallback pour les publications dont le propriétaire n'a pas pu être extrait
-    if (!selectedAccount.value.username) return false
-    return post.ownerUsername.toLowerCase().trim() === selectedAccount.value.username.toLowerCase().trim()
-  })
-})
-
-
-// Communications with the Chrome extension
-function deletePost(url: string) {
-  window.postMessage({ type: 'DELETE_SCRAPED_POST', data: { url } }, '*')
-}
-
-function deleteAccount(username: string) {
-  window.postMessage({ type: 'DELETE_SCRAPED_ACCOUNT', data: { username } }, '*')
-}
-
-function selectPost(post: any) {
-  selectedPost.value = post
-}
-
-function selectAccount(account: any) {
-  selectedAccount.value = account
-}
-
-// Reset/Abort drawing
+// Reset draw and refresh extension data
 function resetDraw() {
   store.reset()
-  // Refresh posts and accounts list from extension
-  window.postMessage({ type: 'GET_SCRAPED_DATA' }, '*')
-}
-
-// Demo data generator
-const MOCK_USERNAMES = [
-  'pixel_nomad', 'luna_wanderlust', 'tech_pioneer', 'aurora_design', 'zen_developer',
-  'golden_hour_vibes', 'indie_hacker', 'neon_dreamer', 'code_artisan', 'coffee_n_compile'
-]
-
-const MOCK_COMMENTS = [
-  'Incroyable ! Je participe ! 🔥✨',
-  'Je croise les doigts 🤞🎉',
-  'La charte graphique est magnifique !',
-  'Exactement ce dont j\'ai besoin. 🚀🙌',
-  'Je taggue @nomad et @guru !'
-]
-
-function generateMockUsers(count: number) {
-  const users = []
-  for (let i = 0; i < count; i++) {
-    const username = MOCK_USERNAMES[i % MOCK_USERNAMES.length] + (i >= MOCK_USERNAMES.length ? `_${Math.floor(i / MOCK_USERNAMES.length)}` : '')
-    users.push({
-      id: `mock-${i}-${Math.random().toString(36).substr(2, 9)}`,
-      username: `@${username}`,
-      avatar: `https://i.pravatar.cc/150?u=${username}`,
-      comment: MOCK_COMMENTS[Math.floor(Math.random() * MOCK_COMMENTS.length)],
-      has_liked: Math.random() > 0.35,
-      is_follower: Math.random() > 0.40
-    })
-  }
-  return users
-}
-
-function loadDemoData() {
-  isExtensionLoaded.value = true
-  
-  scrapedAccounts.value = [
-    {
-      username: '@patricerv',
-      avatar: 'https://i.pravatar.cc/150?u=patricerv',
-      followers: ['@pixel_nomad', '@luna_wanderlust', '@tech_pioneer', '@aurora_design', '@zen_developer', '@golden_hour_vibes'],
-      followersCount: 1049,
-      scrapedAt: Date.now() - 1000 * 60 * 60 * 24
-    },
-    {
-      username: '@johnrachic',
-      avatar: 'https://i.pravatar.cc/150?u=johnrachic',
-      followers: ['@golden_hour_vibes', '@indie_hacker', '@neon_dreamer', '@code_artisan', '@coffee_n_compile', '@pixel_nomad'],
-      followersCount: 3200,
-      scrapedAt: Date.now() - 1000 * 60 * 60 * 48
-    }
-  ]
-
-  scrapedPosts.value = [
-    {
-      url: 'https://www.instagram.com/p/mock_summer_giveaway/',
-      ownerUsername: '@patricerv',
-      scrapedAt: Date.now() - 1000 * 60 * 5, // 5 min ago
-      users: generateMockUsers(60)
-    },
-    {
-      url: 'https://www.instagram.com/p/mock_winter_contest/',
-      ownerUsername: '@johnrachic',
-      scrapedAt: Date.now() - 1000 * 60 * 60 * 2, // 2h ago
-      users: generateMockUsers(45)
-    }
-  ]
-}
-
-// Launch visual elimination/draw timeline
-function launchDraw() {
-  if (!selectedPost.value) return
-
-  const users = (selectedPost.value.users || []).map((u: any) => {
-    // Vérification réelle si la liste des abonnés a été extraite par l'extension
-    let is_follower = true
-    if (checkFollowers.value) {
-      if (u.is_follower !== undefined) {
-        is_follower = u.is_follower
-      } else if (selectedAccount.value && selectedAccount.value.followers && Array.isArray(selectedAccount.value.followers)) {
-        is_follower = selectedAccount.value.followers.includes(u.username)
-      } else {
-        // Fallback simulé si la liste n'a pas été extraite
-        is_follower = Math.random() > 0.45
-      }
-    }
-    
-    // likes extraits réellement par l'extension
-    const has_liked = checkLikes.value ? (u.has_liked !== undefined ? u.has_liked : true) : true
-    
-    return {
-      ...u,
-      has_liked,
-      is_follower
-    }
-  })
-
-  // Ensure there is at least one winner matching both checks
-  if (users.length > 0) {
-    const validUsers = users.filter((u: any) => u.has_liked && u.is_follower)
-    if (validUsers.length === 0) {
-      users[0].has_liked = true
-      users[0].is_follower = true
-    }
-  }
-
-  // Load into Pinia
-  store.users = users
-  store.originalUsers = [...users]
-  store.url = selectedPost.value.url
-  store.setStatus('revealing')
+  giveawayService.refreshData()
 }
 
 // Confetti triggers
@@ -411,112 +254,19 @@ function triggerLocalConfetti() {
 
 // Lifecycle checks
 onMounted(() => {
-  // Check if we still have the old localStorage import (backup helper)
-  const importedDataStr = localStorage.getItem('insta_giveaway_scraped_data')
-  if (importedDataStr) {
-    try {
-      const payload = JSON.parse(importedDataStr)
-      localStorage.removeItem('insta_giveaway_scraped_data')
-      if (payload && Array.isArray(payload.users) && payload.users.length > 0) {
-        selectedPost.value = {
-          url: payload.url || '',
-          users: payload.users,
-          scrapedAt: Date.now()
-        }
-      }
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  // Ping Chrome extension
-  let pingAttempts = 0
-  const pingInterval = setInterval(() => {
-    window.postMessage({ type: 'PING_EXTENSION' }, '*')
-    pingAttempts++
-    if (pingAttempts > 15 && !isExtensionLoaded.value) {
-      clearInterval(pingInterval)
-    }
-  }, 250)
-
-  // Listen to bridge messages
-  window.addEventListener('message', (event) => {
-    if (event.source !== window) return
-    const { type, posts, accounts } = event.data
-    
-    if (type === 'EXTENSION_PONG') {
-      isExtensionLoaded.value = true
-      clearInterval(pingInterval)
-      // Retrieve list of posts and accounts from extension
-      window.postMessage({ type: 'GET_SCRAPED_DATA' }, '*')
-    } else if (type === 'SCRAPED_POSTS_RESPONSE') {
-      scrapedPosts.value = posts || []
-    } else if (type === 'SCRAPED_DATA_RESPONSE') {
-      scrapedPosts.value = posts || []
-      scrapedAccounts.value = accounts || []
-      
-      // If selected account is no longer in the list, reset it
-      if (selectedAccount.value && !scrapedAccounts.value.some(a => a.username === selectedAccount.value.username)) {
-        selectedAccount.value = null
-      }
-      
-      // If selected post is no longer in the list, reset it
-      if (selectedPost.value && !scrapedPosts.value.some(p => p.url === selectedPost.value.url)) {
-        selectedPost.value = null
-      }
-    }
-  })
+  giveawayService.init()
 })
 
-// watch store.status to kick off drawing timelines
+onBeforeUnmount(() => {
+  giveawayService.destroy()
+})
+
+// watch store.status to trigger confetti on victory
 watch(() => store.status, (newStatus) => {
-  if (newStatus === 'revealing') {
-    runTimeline()
-  } else if (newStatus === 'victory') {
+  if (newStatus === 'victory') {
     triggerLocalConfetti()
   }
 })
-
-function runTimeline() {
-  const staggerDuration = store.users.length * 35
-  const revealDelay = Math.max(2000, staggerDuration + 1200)
-
-  setTimeout(() => {
-    if (store.status !== 'revealing') return
-    
-    if (checkLikes.value) {
-      store.setStatus('purging_likes')
-      setTimeout(() => {
-        if (store.status !== 'purging_likes') return
-        store.purgeNonLikers()
-        setTimeout(checkNextPhaseAfterLikes, 1800)
-      }, 1500)
-    } else {
-      checkNextPhaseAfterLikes()
-    }
-  }, revealDelay)
-}
-
-function checkNextPhaseAfterLikes() {
-  if (checkFollowers.value) {
-    store.setStatus('purging_follows')
-    setTimeout(() => {
-      if (store.status !== 'purging_follows') return
-      store.purgeNonFollowers()
-      setTimeout(transitionToMorph, 1800)
-    }, 1500)
-  } else {
-    transitionToMorph()
-  }
-}
-
-function transitionToMorph() {
-  store.setStatus('morphing')
-  setTimeout(() => {
-    if (store.status !== 'morphing') return
-    store.setStatus('spinning')
-  }, 2500)
-}
 </script>
 
 <style>

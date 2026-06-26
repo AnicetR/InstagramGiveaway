@@ -758,13 +758,13 @@ function findQueryIdResilient(text, queryName) {
     if (docIdMatch) {
       return docIdMatch[1];
     }
-    
+
     // 2. Chercher query_hash (32 caractères hexadécimaux)
     const hashMatch = windowText.match(/(?:query_hash|id|hash)\s*:\s*["']([a-fA-F0-9]{32})["']/i);
     if (hashMatch) {
       return hashMatch[1];
     }
-    
+
     idx = text.indexOf(queryName, idx + 1);
   }
   return null;
@@ -815,17 +815,17 @@ async function findQueryIdFromExternal(queryName) {
 // Fonction d'extraction des J'aime via GraphQL
 async function extractLikersGraphQL(mediaId) {
   if (!mediaId) return null;
-  
+
   // Chercher l'identifiant de la requête des J'aime (LikedBy list)
-  let queryId = findQueryId("PolarisPostLikedByListDialogQuery") || 
-                findQueryId("LikedByListDialogQuery") ||
-                findQueryId("LikesListQuery");
-                
+  let queryId = findQueryId("PolarisPostLikedByListDialogQuery") ||
+    findQueryId("LikedByListDialogQuery") ||
+    findQueryId("LikesListQuery");
+
   if (!queryId) {
     console.log("[Instagram Giveaway] Recherche de l'identifiant Likes GraphQL dans les scripts externes...");
-    queryId = await findQueryIdFromExternal("PolarisPostLikedByListDialogQuery") || 
-              await findQueryIdFromExternal("LikedByListDialogQuery") ||
-              await findQueryIdFromExternal("LikesListQuery");
+    queryId = await findQueryIdFromExternal("PolarisPostLikedByListDialogQuery") ||
+      await findQueryIdFromExternal("LikedByListDialogQuery") ||
+      await findQueryIdFromExternal("LikesListQuery");
   }
 
   if (!queryId) {
@@ -834,7 +834,7 @@ async function extractLikersGraphQL(mediaId) {
   }
 
   console.log(`[Instagram Giveaway] Début de l'extraction des likes via GraphQL avec ID: ${queryId}`);
-  
+
   const likers = [];
   let hasNext = true;
   let cursor = null;
