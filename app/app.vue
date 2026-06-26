@@ -236,30 +236,6 @@ const filteredPosts = computed(() => {
   })
 })
 
-// Format utilities
-function formatPostUrl(url: string) {
-  if (!url) return ''
-  try {
-    const parts = url.split('/')
-    const idx = parts.indexOf('p') !== -1 ? parts.indexOf('p') : parts.indexOf('reel')
-    if (idx !== -1 && parts[idx + 1]) {
-      return `instagram.com/${parts[idx]}/${parts[idx + 1]}`
-    }
-  } catch (e) {}
-  return url.replace('https://', '').replace('www.', '').substring(0, 30) + '...'
-}
-
-function formatTimeAgo(timestamp: number) {
-  if (!timestamp) return ''
-  const seconds = Math.floor((Date.now() - timestamp) / 1000)
-  if (seconds < 60) return "À l'instant"
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `Il y a ${minutes} min`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `Il y a ${hours} h`
-  const date = new Date(timestamp)
-  return `Le ${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`
-}
 
 // Communications with the Chrome extension
 function deletePost(url: string) {

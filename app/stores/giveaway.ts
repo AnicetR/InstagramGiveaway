@@ -10,6 +10,21 @@ export interface Entrant {
   is_follower: boolean
 }
 
+export interface ScrapedAccount {
+  username: string
+  avatar: string
+  followers: string[]
+  followersCount: number
+  scrapedAt: number
+}
+
+export interface ScrapedPost {
+  url: string
+  ownerUsername: string
+  scrapedAt: number
+  users: Entrant[]
+}
+
 export type GiveawayStatus =
   | 'idle'
   | 'fetching'
@@ -58,11 +73,11 @@ export const useGiveawayStore = defineStore('giveaway', () => {
       if (response && response.success && Array.isArray(response.data)) {
         users.value = response.data
         originalUsers.value = [...response.data]
-        
+
         if (users.value.length === 0) {
           throw new Error('Aucun participant trouvé pour cette publication Instagram.')
         }
-        
+
         status.value = 'revealing'
       } else {
         throw new Error(response.error || 'Échec de l\'extraction des données du concours.')
@@ -87,8 +102,10 @@ export const useGiveawayStore = defineStore('giveaway', () => {
       winner.value = null
       return null
     }
-    const randomIndex = Math.floor(Math.random() * users.value.length)
-    winner.value = users.value[randomIndex]
+    while (winner.value === null) {
+      const randomIndex = Math.floor(Math.random() * users.value.length)
+      winner.value = users.value[randomIndex] ?? null
+    }
     return winner.value
   }
 

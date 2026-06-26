@@ -24,10 +24,10 @@
           @click="$emit('select', account)"
         >
           <div class="flex items-center gap-2.5 flex-1 min-w-0 pr-2">
-            <img :src="account.avatar" class="w-8 h-8 rounded-full object-cover border border-slate-700" />
+            <img :src="account.avatar" class="w-8 h-8 rounded-full object-cover border border-slate-700" @error="handleAvatarError($event, account.username)" />
             <div class="flex-1 min-w-0">
               <div class="text-[11px] font-bold text-sky-400 truncate">{{ account.username }}</div>
-              <div class="text-[9px] text-slate-455 mt-0.5">
+              <div class="text-[9px] text-slate-400 mt-0.5">
                 <span>👥 {{ account.followers?.length || 0 }} abonnés</span>
               </div>
             </div>
@@ -45,12 +45,14 @@
 </template>
 
 <script setup lang="ts">
+import type { ScrapedAccount } from '~/stores/giveaway'
+
 defineProps<{
-  accounts: any[]
+  accounts: ScrapedAccount[]
 }>()
 
 defineEmits<{
-  (e: 'select', account: any): void
+  (e: 'select', account: ScrapedAccount): void
   (e: 'delete', username: string): void
 }>()
 </script>

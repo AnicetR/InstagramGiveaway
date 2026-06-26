@@ -8,7 +8,7 @@
       
       <div class="bg-emerald-500/5 border border-emerald-500/15 rounded-2xl p-3.5 text-center space-y-2">
         <div class="flex items-center justify-center gap-2">
-          <img :src="selectedAccount.avatar" class="w-8 h-8 rounded-full object-cover border border-slate-700" />
+          <img :src="selectedAccount.avatar" class="w-8 h-8 rounded-full object-cover border border-slate-700" @error="handleAvatarError($event, selectedAccount.username)" />
           <div class="text-left">
             <div class="text-[11px] font-bold text-sky-400">{{ selectedAccount.username }}</div>
             <div class="text-[9px] text-emerald-400 font-bold flex items-center gap-1">
@@ -19,7 +19,7 @@
         
         <div class="border-t border-white/5 pt-2 flex items-center justify-between text-[10px] text-slate-400">
           <span>Participants chargés :</span>
-          <span class="font-bold text-emerald-450">{{ selectedPost.users?.length || 0 }}</span>
+          <span class="font-bold text-emerald-400">{{ selectedPost.users?.length || 0 }}</span>
         </div>
       </div>
       
@@ -64,7 +64,7 @@
       </button>
       <button 
         @click="$emit('back')"
-        class="w-full bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 text-slate-350 font-semibold py-3 px-4 rounded-2xl transition text-xs"
+        class="w-full bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-white/10 text-slate-300 font-semibold py-3 px-4 rounded-2xl transition text-xs"
       >
         Retour aux publications
       </button>
@@ -73,9 +73,11 @@
 </template>
 
 <script setup lang="ts">
+import type { ScrapedAccount, ScrapedPost } from '~/stores/giveaway'
+
 defineProps<{
-  selectedAccount: any
-  selectedPost: any
+  selectedAccount: ScrapedAccount
+  selectedPost: ScrapedPost
   checkLikes: boolean
   checkFollowers: boolean
 }>()
@@ -85,16 +87,4 @@ defineEmits<{
   (e: 'launch'): void
   (e: 'back'): void
 }>()
-
-function formatPostUrl(url: string) {
-  if (!url) return ''
-  try {
-    const parts = url.split('/')
-    const idx = parts.indexOf('p') !== -1 ? parts.indexOf('p') : parts.indexOf('reel')
-    if (idx !== -1 && parts[idx + 1]) {
-      return `instagram.com/${parts[idx]}/${parts[idx + 1]}`
-    }
-  } catch (e) {}
-  return url.replace('https://', '').replace('www.', '').substring(0, 30) + '...'
-}
 </script>

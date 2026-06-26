@@ -216,7 +216,7 @@ const cardStyles = computed(() => {
       card: 'p-2 flex-row items-center gap-2 h-12 rounded-xl w-full',
       avatar: 'w-7.5 h-7.5',
       username: 'text-[10px] font-bold text-slate-100',
-      comment: 'text-[8px] block text-slate-450 truncate mt-0.5'
+      comment: 'text-[8px] block text-slate-400 truncate mt-0.5'
     }
   } else if (cols === 4) {
     return {
@@ -229,7 +229,7 @@ const cardStyles = computed(() => {
     return {
       card: 'p-1 flex-col items-center justify-center text-center h-14 rounded-lg w-full',
       avatar: 'w-6.5 h-6.5 mb-0.5',
-      username: 'text-[7.5px] font-bold text-slate-150 w-full truncate',
+      username: 'text-[7.5px] font-bold text-slate-200 w-full truncate',
       comment: 'hidden'
     }
   } else if (cols === 6) {
@@ -243,7 +243,7 @@ const cardStyles = computed(() => {
     return {
       card: 'p-0.5 flex-col items-center justify-center text-center h-9.5 rounded-md w-full border-white/5',
       avatar: 'w-5 h-5 mb-0.5',
-      username: 'text-[5.5px] font-medium text-slate-250 w-full truncate',
+      username: 'text-[5.5px] font-medium text-slate-300 w-full truncate',
       comment: 'hidden'
     }
   }
@@ -258,7 +258,10 @@ function staggerReveal() {
   
   function addNext() {
     if (idx < rawUsers.length && status.value === 'revealing') {
-      displayedUsers.value.push(rawUsers[idx])
+      const user = rawUsers[idx]
+      if (user) {
+        displayedUsers.value.push(user)
+      }
       idx++
       
       // Auto grid rearrangement animates automatically via CSS and columns computed
@@ -294,19 +297,6 @@ watch(status, (newStatus) => {
     staggerReveal()
   }
 })
-function handleAvatarError(event: Event, username: string) {
-  const img = event.target as HTMLImageElement;
-  const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#ef4444'];
-  let hash = 0;
-  const name = username || 'U';
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const color = colors[Math.abs(hash) % colors.length];
-  const char = name.replace('@', '').charAt(0).toUpperCase() || 'U';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" fill="${color}"/><text x="50" y="65" font-family="Arial, sans-serif" font-size="50" font-weight="bold" fill="#ffffff" text-anchor="middle">${char}</text></svg>`;
-  img.src = 'data:image/svg+xml;base64,' + btoa(svg);
-}
 </script>
 
 <style scoped>
