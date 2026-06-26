@@ -25,7 +25,7 @@
       
       <!-- Eligibility Rules Toggles inside the simulator -->
       <div class="space-y-3">
-        <button 
+        <!-- <button 
           @click="$emit('toggle-rule', 'likes')" 
           class="w-full flex items-center justify-between p-3.5 rounded-2xl border text-xs font-semibold transition-all duration-300"
           :class="checkLikes 
@@ -37,7 +37,7 @@
             Doit aimer la publication
           </div>
           <span v-if="checkLikes" class="text-[9px] bg-rose-500/20 px-2 py-0.5 rounded-full font-mono font-bold">Actif</span>
-        </button>
+        </button> -->
         
         <button 
           @click="$emit('toggle-rule', 'followers')" 

@@ -29,7 +29,7 @@
       ref="scrollContainer"
       class="flex-1 transition-all duration-1000 ease-in-out no-scrollbar flex items-center justify-center w-full overflow-hidden"
       :class="{
-        'flex flex-row overflow-x-hidden w-full items-center justify-start gap-4 px-12 py-6 h-36 bg-slate-900/40 border-y border-slate-900/80 backdrop-blur-sm relative': status === 'morphing'
+        'flex flex-row overflow-x-hidden w-full items-center justify-start gap-4 py-6 h-[148px] bg-slate-900/30 border-y border-slate-900/60 backdrop-blur-sm relative': status === 'morphing'
       }"
     >
       <TransitionGroup 
@@ -43,7 +43,10 @@
         :style="status !== 'morphing' ? { 
           gridTemplateColumns: gridStyles.gridTemplateColumns, 
           gap: gridGapStyle 
-        } : {}"
+        } : {
+          paddingLeft: 'calc(50% - 50px)',
+          paddingRight: 'calc(50% - 50px)'
+        }"
       >
         <div
           v-for="user in displayedUsers"
@@ -51,7 +54,7 @@
           class="card-transition bg-white/[0.03] border border-white/5 shadow-md relative overflow-hidden flex backdrop-blur-md"
           :class="[
             // Dynamic classes computed by cardStyles
-            status !== 'morphing' ? cardStyles.card : 'rounded-2xl flex-col items-center justify-center p-4 w-[100px] h-[100px] text-center bg-white/[0.04] border border-white/10 backdrop-blur-md shadow-[0_0_15px_rgba(255,255,255,0.05)]',
+            status !== 'morphing' ? cardStyles.card : 'rounded-2xl flex-col items-center justify-center p-3 w-[100px] h-[100px] text-center bg-white/[0.02] border border-white/5 backdrop-blur-sm',
             
             // Like Purge Phase Grayscale
             status === 'purging_likes' && !user.has_liked 
@@ -86,11 +89,11 @@
           <!-- Entrant Avatar -->
           <div 
             class="relative transition-all duration-700 ease-in-out flex-shrink-0"
-            :class="status !== 'morphing' ? cardStyles.avatar : 'w-12 h-12 mb-1.5'"
+            :class="status !== 'morphing' ? cardStyles.avatar : 'w-20 h-20 mb-1.5'"
           >
             <img 
               :src="user.avatar" 
-              class="w-full h-full object-cover border border-slate-700 shadow-sm"
+              class="w-full h-full object-cover border border-slate-700 shadow-sm rounded-full"
               :class="{
                 'border-emerald-400': (status === 'purging_likes' && user.has_liked) || (status === 'purging_follows' && user.is_follower)
               }"
@@ -120,7 +123,7 @@
           >
             <div 
               class="font-bold text-slate-100 truncate tracking-tight transition-all duration-700"
-              :class="status !== 'morphing' ? cardStyles.username : 'text-[10px] text-emerald-400'"
+              :class="status !== 'morphing' ? cardStyles.username : 'text-[12px] text-slate-400 font-bold w-full truncate'"
             >
               {{ user.username }}
             </div>
@@ -136,6 +139,26 @@
         </div>
       </TransitionGroup>
     </div>
+
+    <!-- Popover when all participants are subscribers -->
+    <Transition name="fade-scale">
+      <div 
+        v-if="showFollowersPopover"
+        class="absolute inset-0 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm z-30 pointer-events-none p-4"
+      >
+        <div class="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-400/40 backdrop-blur-md rounded-2xl py-4 px-6 shadow-[0_8px_32px_rgba(16,185,129,0.3)] flex flex-col items-center gap-2 max-w-[280px] text-center animate-bounce-short">
+          <div class="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.4)]">
+            <Icon name="mdi:check-decagram" class="w-6 h-6 animate-pulse" />
+          </div>
+          <div class="text-xs font-black text-emerald-400 uppercase tracking-wider font-outfit">
+            Abonnements vérifiés
+          </div>
+          <p class="text-[10px] text-slate-200 font-medium leading-relaxed">
+            Tous les participants sont abonnés !
+          </p>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -148,6 +171,7 @@ const status = computed(() => store.status)
 
 // Local array to handle staggered loading entry animation
 const displayedUsers = ref<Entrant[]>([])
+const showFollowersPopover = ref(false)
 const scrollContainer = ref<HTMLDivElement | null>(null)
 
 // Titles depending on the state
@@ -296,6 +320,18 @@ watch(status, (newStatus) => {
     updateLockedCols(store.users.length)
     staggerReveal()
   }
+
+  if (newStatus === 'purging_follows') {
+    const allFollowers = store.users.every(u => u.is_follower)
+    if (allFollowers && store.users.length > 0) {
+      showFollowersPopover.value = true
+      setTimeout(() => {
+        showFollowersPopover.value = false
+      }, 2500)
+    }
+  } else {
+    showFollowersPopover.value = false
+  }
 })
 </script>
 
@@ -330,5 +366,22 @@ watch(status, (newStatus) => {
 /* Move transitions for smooth grid reflow and scaling up/down */
 .list-move {
   transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Popover transition */
+.fade-scale-enter-active, .fade-scale-leave-active {
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.fade-scale-enter-from, .fade-scale-leave-to {
+  opacity: 0;
+  transform: scale(0.9) translateY(10px);
+}
+
+@keyframes bounce-short {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.animate-bounce-short {
+  animation: bounce-short 2s ease-in-out infinite;
 }
 </style>

@@ -88,7 +88,7 @@
 
           <!-- CORE VIEWPORT / ANIMATION CONTAINER (Centered 70% Safe Zone) -->
           <div class="flex-1 w-full relative z-10 pt-[10%] pb-[20%] flex flex-col justify-center overflow-hidden">
-            <Transition name="fade-slide" mode="out-in">
+            <Transition :name="transitionName" :mode="transitionMode">
               <!-- State: Idle (Setup and selection screens inside the phone) -->
               <div v-if="store.status === 'idle'" key="idle" class="w-full h-full">
                 
@@ -188,7 +188,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useGiveawayStore } from '~/stores/giveaway'
 import { giveawayService } from '~/services/giveawayService'
 import UserGrid from '~/components/UserGrid.vue'
@@ -200,6 +200,17 @@ import CompanionLoader from '~/components/CompanionLoader.vue'
 import confetti from 'canvas-confetti'
 
 const store = useGiveawayStore()
+
+const transitionName = computed(() => {
+  return store.status === 'idle' ? 'fade-slide' : 'crossfade'
+})
+
+const transitionMode = computed(() => {
+  if (store.status === 'spinning' || store.status === 'morphing') {
+    return '' // Simultaneous crossfade for seamless morph-to-spin
+  }
+  return 'out-in'
+})
 
 const localConfettiCanvas = ref<HTMLCanvasElement | null>(null)
 let localConfetti: any = null
@@ -305,5 +316,20 @@ html, body {
 .fade-slide-leave-to {
   opacity: 0;
   transform: translateY(-8px) scale(0.98);
+}
+
+/* Crossfade transition for seamless morph */
+.crossfade-enter-active, .crossfade-leave-active {
+  transition: opacity 0.5s ease-in-out;
+}
+.crossfade-leave-active {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+.crossfade-enter-from, .crossfade-leave-to {
+  opacity: 0;
 }
 </style>

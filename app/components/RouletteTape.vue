@@ -6,8 +6,8 @@
       
       <!-- Top glowing crosshair pin (Wrapped in centered zero-width container to prevent scaling drift) -->
       <div 
-        v-if="store.status !== 'victory'"
-        class="absolute left-1/2 top-8 w-0 h-0 flex flex-col items-center justify-start overflow-visible z-20 transition-opacity duration-300"
+        class="absolute left-1/2 top-8 w-0 h-0 flex flex-col items-center justify-start overflow-visible z-20 transition-all duration-300"
+        :class="store.status === 'victory' ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100'"
       >
         <div 
           ref="crosshairTop" 
@@ -21,8 +21,8 @@
       
       <!-- Bottom glowing crosshair pin -->
       <div 
-        v-if="store.status !== 'victory'"
-        class="absolute left-1/2 bottom-8 w-0 h-0 flex flex-col items-center justify-end overflow-visible z-20 transition-opacity duration-300"
+        class="absolute left-1/2 bottom-8 w-0 h-0 flex flex-col items-center justify-end overflow-visible z-20 transition-all duration-300"
+        :class="store.status === 'victory' ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100'"
       >
         <div 
           ref="crosshairBottom" 
@@ -36,8 +36,8 @@
 
       <!-- Center Glowing Crosshair Line -->
       <div 
-        v-if="store.status !== 'victory'"
-        class="absolute left-1/2 inset-y-0 w-0 flex items-center justify-center overflow-visible z-10 transition-opacity duration-300"
+        class="absolute left-1/2 inset-y-0 w-0 flex items-center justify-center overflow-visible z-10 transition-all duration-300"
+        :class="store.status === 'victory' ? 'opacity-0 scale-x-50 pointer-events-none' : 'opacity-100 scale-x-100'"
       >
         <div 
           ref="crosshairLine" 
@@ -85,7 +85,7 @@
             >
               <img 
                 :src="item.avatar" 
-                class="w-12 h-12 rounded-full object-cover border border-slate-700 mb-1.5 shadow-sm"
+                class="w-20 h-20 rounded-full object-cover border border-slate-700 mb-1.5 shadow-sm"
                 :class="{
                   'border-yellow-400': store.status === 'victory' && idx === winningIndex
                 }"
@@ -93,7 +93,7 @@
                 alt="Avatar"
               />
               <div 
-                class="text-[9px] font-bold truncate w-full"
+                class="text-[12px] font-bold truncate w-full"
                 :class="store.status === 'victory' && idx === winningIndex ? 'text-yellow-400 font-extrabold' : 'text-slate-400'"
               >
                 {{ item.username }}
@@ -118,7 +118,7 @@
           <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-yellow-500/10 rounded-full blur-[50px] pointer-events-none"></div>
 
           <!-- Winner Avatar / Trophy Badge -->
-          <div class="w-20 h-20 mx-auto mb-5 relative animate-bounce">
+          <div class="w-40 h-40 mx-auto mb-5 relative animate-bounce">
             <img 
               :src="store.winner.avatar" 
               class="w-full h-full rounded-full object-cover border-4 border-yellow-500 shadow-[0_0_25px_rgba(245,158,11,0.55)]"
@@ -126,13 +126,13 @@
               alt="Winner Avatar"
             />
             <!-- Small Trophy Badge overlay -->
-            <div class="absolute -bottom-1 -right-1 w-7 h-7 bg-gradient-to-tr from-yellow-500 to-yellow-600 rounded-full flex items-center justify-center border border-yellow-400 shadow">
-              <Icon name="mdi:trophy" class="w-3.5 h-3.5 text-slate-950" />
+            <div class="absolute -bottom-1 -right-1 w-12 h-12 bg-gradient-to-tr from-yellow-500 to-yellow-600 rounded-full flex items-center justify-center border border-yellow-400 shadow">
+              <Icon name="mdi:trophy" class="w-5 h-5 text-slate-950" />
             </div>
             <!-- Small sparkles -->
-            <span class="absolute -top-1 -right-1 flex h-3 w-3">
+            <span class="absolute -top-0 -right-1 flex h-5 w-5">
               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span>
+              <span class="relative inline-flex rounded-full h-5 w-5 bg-yellow-500"></span>
             </span>
           </div>
 
@@ -146,23 +146,13 @@
           </h2>
  
           <!-- Winning Comment Bubble -->
-          <div class="bg-black/40 border border-white/10 rounded-2xl p-4 mb-6 text-left relative backdrop-blur-md shadow-inner">
+          <div class="bg-black/40 border border-white/10 rounded-2xl p-4 mb-6 text-left relative backdrop-blur-md shadow-inner py-6 mt-6">
             <span class="absolute -top-2 left-6 text-[8px] bg-white/[0.08] border border-white/10 px-2 py-0.5 rounded text-yellow-400 uppercase tracking-wider font-mono font-bold">
               Commentaire
             </span>
-            <p class="text-xs text-slate-400 italic line-clamp-3">
+            <p class="text-s text-slate-400 italic line-clamp-3">
               "{{ store.winner.comment }}"
             </p>
-          </div>
- 
-          <!-- Actions -->
-          <div class="space-y-2.5">
-            <button 
-              @click="resetStore"
-              class="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-slate-950 font-bold py-3.5 px-6 rounded-2xl transition-all duration-300 transform active:scale-[0.98] shadow-lg shadow-yellow-500/20 text-sm font-outfit"
-            >
-              Lancer un nouveau concours
-            </button>
           </div>
         </div>
       </div>
@@ -199,14 +189,14 @@ const CELL_SIZE = TILE_WIDTH + GAP // Total size of cell including offset
 // CONFIGURATION DU TIRAGE ET DES ANIMATIONS (Modifiez ces valeurs pour ajuster)
 // ============================================================================
 const ANIMATION_CONFIG = {
-  // Facteur d'overshoot / dépassement du vainqueur (1.0 = pile au centre, 1.10 = dépassement de 10%, 1.20 = 20%)
-  overshootProgress: 1.10,
+  // Dépassement en fraction de carte (ex. 0.3 = 30% d'une carte)
+  overshootCardFraction: 0.35,
 
   // Durée (en secondes) de la phase principale de rotation/décélération
   spinDuration: 10.2,
 
   // Courbe d'atténuation (GSAP easing) pour la phase de décélération principale
-  spinEase: 'power4.out',
+  spinEase: 'power4.inOut',
 
   // Durée (en secondes) de la phase de retour/rebond vers le centre
   bounceDuration: 1.3,
@@ -215,7 +205,7 @@ const ANIMATION_CONFIG = {
   bounceEase: 'bounce.out',
 
   // Échelle d'agrandissement finale (zoom) sur le gagnant
-  targetScale: 3.2,
+  targetScale: 3,
 
   // Courbe d'atténuation pour le zoom
   zoomEase: 'power2.inOut',
@@ -318,10 +308,13 @@ function startSpin() {
 
   // Spin Timeline (Subtle near-miss overshoot and bounce back)
   
+  // Dynamically calculate overshootProgress relative to a single card's width
+  const overshootProgress = 1.0 + (ANIMATION_CONFIG.overshootCardFraction / winningIndex.value)
+
   // 1. Scroll Position: 
   // Phase A: Spin fast and decelerate, overshooting the winner subtly (reaches overshootProgress)
   tl.to(animState, {
-    scrollProgress: ANIMATION_CONFIG.overshootProgress,
+    scrollProgress: overshootProgress,
     duration: ANIMATION_CONFIG.spinDuration,
     ease: ANIMATION_CONFIG.spinEase
   }, 0)

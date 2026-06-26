@@ -52,7 +52,7 @@ export const useGiveawayStore = defineStore('giveaway', () => {
   const selectedAccount = ref<ScrapedAccount | null>(null)
   const scrapedPosts = ref<ScrapedPost[]>([])
   const selectedPost = ref<ScrapedPost | null>(null)
-  const checkLikes = ref(true)
+  const checkLikes = ref(false)
   const checkFollowers = ref(true)
 
   // Active timeouts tracking for cleanups
@@ -150,9 +150,9 @@ export const useGiveawayStore = defineStore('giveaway', () => {
           is_follower = Math.random() > 0.45
         }
       }
-      
+
       const has_liked = checkLikes.value ? (u.has_liked !== undefined ? u.has_liked : true) : true
-      
+
       return {
         ...u,
         has_liked,
@@ -183,7 +183,7 @@ export const useGiveawayStore = defineStore('giveaway', () => {
 
     registerTimeout(() => {
       if (status.value !== 'revealing') return
-      
+
       if (checkLikes.value) {
         status.value = 'purging_likes'
         registerTimeout(() => {
