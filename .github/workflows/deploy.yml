@@ -27,7 +27,9 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Generate static site
-        run: yarn generate
+        run: |
+          yarn generate
+          touch .output/public/.nojekyll
         env:
           NUXT_APP_BASE_URL: /${{ github.event.repository.name }}/
 
