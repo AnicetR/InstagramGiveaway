@@ -64,7 +64,7 @@
               : status === 'purging_likes' && !user.has_liked
               ? 'border border-red-900/40'
               : status === 'purging_follows' && checkedUserIds[user.id] === 'follower'
-              ? 'border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.15)] animate-pulse'
+              ? 'border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
               : status === 'purging_follows' && checkedUserIds[user.id] === 'non-follower'
               ? 'border border-red-900/40'
               : 'border border-white/5',
