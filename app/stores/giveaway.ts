@@ -200,7 +200,9 @@ export const useGiveawayStore = defineStore('giveaway', () => {
   function checkNextPhaseAfterLikes() {
     if (checkFollowers.value) {
       status.value = 'purging_follows'
-      const followPurgeDelay = Math.max(1500, users.value.length * 85)
+      const userCount = users.value.length
+      const phaseDuration = userCount > 0 ? Math.max(1500, 2500 / userCount) : 1500
+      const followPurgeDelay = phaseDuration - 300
       registerTimeout(() => {
         if (status.value !== 'purging_follows') return
         purgeNonFollowers()

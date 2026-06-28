@@ -8,15 +8,14 @@
       <div 
         class="absolute left-1/2 top-8 w-0 h-0 flex flex-col items-center justify-start overflow-visible z-20 transition-all duration-500"
         :class="[
-          !isDistributed ? 'opacity-0 scale-50 pointer-events-none' : '',
+          (kinematicStep === 'stack' || kinematicStep === 'distributing') ? 'opacity-0 scale-50 pointer-events-none' : '',
           store.status === 'victory' ? 'opacity-0 scale-75 pointer-events-none' : '',
-          isDistributed && store.status !== 'victory' ? 'opacity-100 scale-100' : ''
+          (kinematicStep === 'zoomed' || kinematicStep === 'spinning') ? 'opacity-100 scale-100' : ''
         ]"
       >
         <div 
           ref="crosshairTop" 
-          class="flex flex-col items-center" 
-          style="transform: scale(1); transform-origin: top center;"
+          class="flex flex-col items-center crosshair-top" 
         >
           <div class="w-4 h-4 bg-yellow-500 rounded-full shadow-[0_0_15px_#eab308] flex-shrink-0"></div>
           <div class="w-0.5 h-6 bg-gradient-to-b from-yellow-500 to-transparent flex-shrink-0"></div>
@@ -27,15 +26,14 @@
       <div 
         class="absolute left-1/2 bottom-8 w-0 h-0 flex flex-col items-center justify-end overflow-visible z-20 transition-all duration-500"
         :class="[
-          !isDistributed ? 'opacity-0 scale-50 pointer-events-none' : '',
+          (kinematicStep === 'stack' || kinematicStep === 'distributing') ? 'opacity-0 scale-50 pointer-events-none' : '',
           store.status === 'victory' ? 'opacity-0 scale-75 pointer-events-none' : '',
-          isDistributed && store.status !== 'victory' ? 'opacity-100 scale-100' : ''
+          (kinematicStep === 'zoomed' || kinematicStep === 'spinning') ? 'opacity-100 scale-100' : ''
         ]"
       >
         <div 
           ref="crosshairBottom" 
-          class="flex flex-col items-center" 
-          style="transform: scale(1); transform-origin: bottom center;"
+          class="flex flex-col items-center crosshair-bottom" 
         >
           <div class="w-0.5 h-6 bg-gradient-to-t from-yellow-500 to-transparent flex-shrink-0"></div>
           <div class="w-4 h-4 bg-yellow-500 rounded-full shadow-[0_0_15px_#eab308] flex-shrink-0"></div>
@@ -46,40 +44,60 @@
       <div 
         class="absolute left-1/2 inset-y-0 w-0 flex items-center justify-center overflow-visible z-10 transition-all duration-500"
         :class="[
-          !isDistributed ? 'opacity-0 scale-x-0 pointer-events-none' : '',
+          (kinematicStep === 'stack' || kinematicStep === 'distributing') ? 'opacity-0 scale-x-0 pointer-events-none' : '',
           store.status === 'victory' ? 'opacity-0 scale-x-50 pointer-events-none' : '',
-          isDistributed && store.status !== 'victory' ? 'opacity-100 scale-x-100' : ''
+          (kinematicStep === 'zoomed' || kinematicStep === 'spinning') ? 'opacity-100 scale-x-100' : ''
         ]"
       >
         <div 
           ref="crosshairLine" 
-          class="w-[2px] h-full bg-gradient-to-b from-transparent via-yellow-500 to-transparent shadow-[0_0_8px_#eab308]"
-          style="transform: scaleX(1); transform-origin: center center;"
+          class="w-[2px] h-full bg-gradient-to-b from-transparent via-yellow-500 to-transparent shadow-[0_0_8px_#eab308] crosshair-line"
         ></div>
       </div>
 
-      <!-- Tape Viewport (Uses flex items-center and dynamic height styles to grow in height as the tape scales) -->
+      <!-- Tape Viewport -->
       <div 
         ref="viewportWrapper"
-        class="w-full overflow-hidden relative bg-slate-900/30 border-y border-slate-900/60 flex items-center"
-        style="height: 148px;"
+        class="w-full relative bg-slate-900/30 border-y border-slate-900/60 flex items-center transition-[height] duration-500 viewport-wrapper"
+        :class="[
+          (kinematicStep === 'stack' || kinematicStep === 'distributing') ? 'overflow-visible' : 'overflow-hidden'
+        ]"
       >
+        <!-- Placeholders Track (Visible only when not fully distributed) -->
+        <div 
+          v-if="!isDistributed"
+          class="absolute inset-0 flex items-center pointer-events-none transition-opacity duration-500 z-0"
+          :class="kinematicStep === 'stack' ? 'opacity-35' : 'opacity-0'"
+        >
+          <!-- Horizontal rail line -->
+          <div class="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent"></div>
+          
+          <!-- Dashed frames container -->
+          <div 
+            class="flex gap-4 w-max items-center"
+            :style="{ paddingLeft: paddingStyle, paddingRight: paddingStyle }"
+          >
+            <div
+              v-for="idx in 8" 
+              :key="'placeholder-' + idx"
+              class="flex-shrink-0 w-[100px] h-[100px] border border-dashed border-white/20 rounded-2xl bg-slate-950/20 shadow-inner"
+            ></div>
+          </div>
+        </div>
+
         <!-- Translation Wrapper (Parent) -->
         <div 
           ref="translationWrapper"
-          class="transform-gpu w-full"
-          style="transform: translate3d(0px, 0, 0);"
+          class="transform-gpu w-full z-10 translation-wrapper"
         >
           <!-- Scale Wrapper (Child) -->
           <div 
             ref="scaleWrapper"
             :style="{ 
               paddingLeft: paddingStyle, 
-              paddingRight: paddingStyle,
-              transform: 'scale(1)', 
-              transformOrigin: 'left center' 
+              paddingRight: paddingStyle
             }"
-            class="flex gap-4 w-max transform-gpu items-center"
+            class="flex gap-4 w-max transform-gpu items-center scale-wrapper"
           >
             <div
               v-for="(item, idx) in tapeItems"
@@ -174,12 +192,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useGiveawayStore, type Entrant } from '~/stores/giveaway'
 import gsap from 'gsap'
 
 const store = useGiveawayStore()
 const isDistributed = ref(false)
+const kinematicStep = ref<'stack' | 'distributing' | 'zoomed' | 'spinning' | 'victory'>('stack')
 
 const viewportWrapper = ref<HTMLDivElement | null>(null)
 const translationWrapper = ref<HTMLDivElement | null>(null)
@@ -261,72 +280,53 @@ function buildTape() {
   tapeItems.value = items
 }
 
-function startSpin() {
+let floatTween: gsap.core.Tween | null = null
+let startTimeoutId: any = null
+
+function updateDOM(scrollProgress: number, scaleAmount: number) {
   if (!translationWrapper.value || !scaleWrapper.value || !viewportWrapper.value) return
 
-  // Measure actual viewport center on spin launch
-  const parent = translationWrapper.value.parentElement
-  if (parent) {
-    crosshairOffset.value = parent.clientWidth / 2
-  }
+  const currentLocalX = crosshairOffset.value + scrollProgress * winningIndex.value * CELL_SIZE
+  const currentX = crosshairOffset.value - currentLocalX * scaleAmount
 
-  // Use raw javascript values to prevent Vue template/reactivity updates from running on every frame
+  translationWrapper.value.style.transform = `translate3d(${currentX}px, 0, 0)`
+  scaleWrapper.value.style.transform = `scale(${scaleAmount})`
+  viewportWrapper.value.style.height = `${148 * scaleAmount}px`
+
+  if (crosshairTop.value) {
+    crosshairTop.value.style.transform = `scale(${scaleAmount})`
+  }
+  if (crosshairBottom.value) {
+    crosshairBottom.value.style.transform = `scale(${scaleAmount})`
+  }
+  if (crosshairLine.value) {
+    crosshairLine.value.style.transform = `scaleX(${scaleAmount})`
+  }
+}
+
+function startSpin(zoomScale: number) {
   const animState = {
-    scrollProgress: 0.0,
-    scaleAmount: 1.0
+    scrollProgress: 0.0
   }
 
-  // Update styles directly on the DOM elements for hardware-accelerated fluid rendering
-  const updateDOM = () => {
-    // Center of first item is crosshairOffset.value, center of item i is crosshairOffset.value + i * CELL_SIZE
-    const currentLocalX = crosshairOffset.value + animState.scrollProgress * winningIndex.value * CELL_SIZE
-    const currentX = crosshairOffset.value - currentLocalX * animState.scaleAmount
-    
-    if (translationWrapper.value) {
-      translationWrapper.value.style.transform = `translate3d(${currentX}px, 0, 0)`
-    }
-    if (scaleWrapper.value) {
-      scaleWrapper.value.style.transform = `scale(${animState.scaleAmount})`
-    }
-    
-    // Scale the tape viewport height so the cards are NEVER clipped on top/bottom
-    if (viewportWrapper.value) {
-      viewportWrapper.value.style.height = `${148 * animState.scaleAmount}px`
-    }
-    
-    // Scale the selector crosshairs in sync to keep visual depth consistent (no drift)
-    if (crosshairTop.value) {
-      crosshairTop.value.style.transform = `scale(${animState.scaleAmount})`
-    }
-    if (crosshairBottom.value) {
-      crosshairBottom.value.style.transform = `scale(${animState.scaleAmount})`
-    }
-    if (crosshairLine.value) {
-      crosshairLine.value.style.transform = `scaleX(${animState.scaleAmount})`
-    }
+  const update = () => {
+    updateDOM(animState.scrollProgress, zoomScale)
   }
 
-  // Initialize
-  updateDOM()
+  update()
 
   const tl = gsap.timeline({
-    onUpdate: updateDOM,
+    onUpdate: update,
     onComplete: () => {
-      // Force exact alignment on completion
-      animState.scaleAmount = ANIMATION_CONFIG.targetScale
-      animState.scrollProgress = 1.0
-      updateDOM()
+      updateDOM(1.0, zoomScale)
       store.setStatus('victory')
+      kinematicStep.value = 'victory'
     }
   })
 
-  // Spin Timeline (Subtle near-miss overshoot and bounce back)
-  
-  // Dynamically calculate overshootProgress relative to a single card's width
   const overshootProgress = 1.0 + (ANIMATION_CONFIG.overshootCardFraction / winningIndex.value)
 
-  // 1. Scroll Position: 
-  // Phase A: Spin fast and decelerate, overshooting the winner subtly (reaches overshootProgress)
+  // Phase A: Spin fast and decelerate, overshooting the winner subtly
   tl.to(animState, {
     scrollProgress: overshootProgress,
     duration: ANIMATION_CONFIG.spinDuration,
@@ -339,20 +339,13 @@ function startSpin() {
     duration: ANIMATION_CONFIG.bounceDuration,
     ease: ANIMATION_CONFIG.bounceEase
   }, ANIMATION_CONFIG.spinDuration)
-
-  // 2. Dynamic Zoom: Scales fluidly from 1.0x to targetScale over the entire duration
-  tl.to(animState, {
-    scaleAmount: ANIMATION_CONFIG.targetScale,
-    duration: ANIMATION_CONFIG.spinDuration + ANIMATION_CONFIG.bounceDuration,
-    ease: ANIMATION_CONFIG.zoomEase
-  }, 0)
 }
 
 function resetStore() {
   store.reset()
 }
 
-function runDistributionAnimation() {
+function setupStackAnimation() {
   if (!scaleWrapper.value) return
 
   const cardElements = Array.from(scaleWrapper.value.children) as HTMLElement[]
@@ -366,29 +359,55 @@ function runDistributionAnimation() {
     }
   }
 
-  // Phase 1: Stack cards in the center immediately
+  // Position cards in a stack above the tape viewport
   cardElements.forEach((cardEl, i) => {
-    const rotation = (Math.random() - 0.5) * 16
-    const xOffset = (Math.random() - 0.5) * 8
-    const yOffset = (Math.random() - 0.5) * 8
+    // Subtle random angle and offset to make it look like a physical card pile
+    const rotation = (Math.random() - 0.5) * 12
+    const xOffset = (Math.random() - 0.5) * 6
+    const yOffset = (Math.random() - 0.5) * 6
 
     gsap.set(cardEl, {
       x: -i * CELL_SIZE + xOffset,
-      y: yOffset,
+      y: -125 + yOffset, // Floating 125px above the tape line
       rotation: rotation,
       zIndex: cardElements.length - i
     })
   })
 
-  // Phase 2: Deal / Distribute them back to x: 0, y: 0, rotation: 0
+  // Gentle floating idle animation on the stack wrapper to make it feel alive
+  floatTween = gsap.to(scaleWrapper.value, {
+    y: '-=8',
+    duration: 1.8,
+    ease: 'sine.inOut',
+    repeat: -1,
+    yoyo: true
+  })
+}
+
+function runDistributionAnimation() {
+  if (!scaleWrapper.value) return
+
+  const cardElements = Array.from(scaleWrapper.value.children) as HTMLElement[]
+  if (cardElements.length === 0) return
+
+  // Kill the float animation and reset the wrapper Y position
+  if (floatTween) {
+    floatTween.kill()
+    floatTween = null
+    gsap.set(scaleWrapper.value, { y: 0 })
+  }
+
+  kinematicStep.value = 'distributing'
+
+  // Deal / Distribute them back to x: 0, y: 0, rotation: 0
   gsap.to(cardElements, {
     x: 0,
     y: 0,
     rotation: 0,
-    duration: 1.2,
-    ease: 'power2.out',
+    duration: 1.1,
+    ease: 'back.out(1.2)', // Nice physical bounce on landing
     stagger: {
-      amount: 0.8,
+      amount: 1.0,
       from: 'start'
     },
     onComplete: () => {
@@ -398,10 +417,30 @@ function runDistributionAnimation() {
       })
       isDistributed.value = true
       
-      // Short delay after distribution completes, then spin!
-      setTimeout(() => {
-        startSpin()
-      }, 400)
+      // Short delay after distribution completes, then run zoom!
+      startTimeoutId = setTimeout(() => {
+        runZoomAnimation()
+      }, 500)
+    }
+  })
+}
+
+function runZoomAnimation() {
+  kinematicStep.value = 'zoomed'
+
+  const zoomState = { scaleAmount: 1.0 }
+
+  gsap.to(zoomState, {
+    scaleAmount: ANIMATION_CONFIG.targetScale,
+    duration: 1.2,
+    ease: ANIMATION_CONFIG.zoomEase,
+    onUpdate: () => {
+      updateDOM(0, zoomState.scaleAmount)
+    },
+    onComplete: () => {
+      // Transition to spinning step
+      kinematicStep.value = 'spinning'
+      startSpin(ANIMATION_CONFIG.targetScale)
     }
   })
 }
@@ -416,8 +455,18 @@ onMounted(() => {
     }
   }
   nextTick(() => {
-    runDistributionAnimation()
+    setupStackAnimation()
+    
+    // Automatically transition from Step 1 to Step 2 after 1.5s
+    startTimeoutId = setTimeout(() => {
+      runDistributionAnimation()
+    }, 1500)
   })
+})
+
+onBeforeUnmount(() => {
+  if (startTimeoutId) clearTimeout(startTimeoutId)
+  if (floatTween) floatTween.kill()
 })
 </script>
 
@@ -433,5 +482,34 @@ onMounted(() => {
 
 .glow-gold {
   box-shadow: 0 0 25px rgba(234, 179, 8, 0.6);
+}
+
+/* Decoupled layout styles for GSAP animation stability */
+.viewport-wrapper {
+  height: 148px;
+}
+
+.translation-wrapper {
+  transform: translate3d(0px, 0, 0);
+}
+
+.scale-wrapper {
+  transform-origin: left center;
+  transform: scale(1);
+}
+
+.crosshair-top {
+  transform-origin: top center;
+  transform: scale(1);
+}
+
+.crosshair-bottom {
+  transform-origin: bottom center;
+  transform: scale(1);
+}
+
+.crosshair-line {
+  transform-origin: center center;
+  transform: scaleX(1);
 }
 </style>
