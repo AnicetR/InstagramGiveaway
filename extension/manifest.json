@@ -22,8 +22,13 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://localhost:3000/*"],
-      "js": ["content-app.js"]
+      "matches": [
+        "http://localhost:3000/*",
+        "https://anicetr.github.io/InstagramGiveaway/*"
+      ],
+      "js": [
+        "content-app.js"
+      ]
     }
   ]
 }
