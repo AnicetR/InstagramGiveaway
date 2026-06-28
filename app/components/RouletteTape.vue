@@ -199,8 +199,8 @@ const CELL_SIZE = TILE_WIDTH + GAP // Total size of cell including offset
 // CONFIGURATION DU TIRAGE ET DES ANIMATIONS (Modifiez ces valeurs pour ajuster)
 // ============================================================================
 const ANIMATION_CONFIG = {
-  // Dépassement en fraction de carte (ex. 0.20 = 20% d'une carte)
-  overshootCardFraction: 0.20,
+  // Dépassement en fraction de carte (ex. 0.45 = 45% d'une carte pour un near-miss parfait)
+  overshootCardFraction: 0.45,
 
   // Durée (en secondes) de la phase de rotation rapide (Segment 1)
   fastDuration: 3.2,
@@ -286,13 +286,14 @@ function updateDOM(scrollProgress: number, scaleAmount: number) {
   }
 }
 
-function startSpin(zoomScale: number) {
+function startSpin(initialZoom: number) {
   const animState = {
-    scrollProgress: 0.0
+    scrollProgress: 0.0,
+    zoomScale: initialZoom
   }
 
   const update = () => {
-    updateDOM(animState.scrollProgress, zoomScale)
+    updateDOM(animState.scrollProgress, animState.zoomScale)
   }
 
   update()
@@ -300,7 +301,7 @@ function startSpin(zoomScale: number) {
   const tl = gsap.timeline({
     onUpdate: update,
     onComplete: () => {
-      updateDOM(1.0, zoomScale)
+      updateDOM(1.0, animState.zoomScale)
       store.setStatus('victory')
       kinematicStep.value = 'victory'
     }
@@ -317,16 +318,18 @@ function startSpin(zoomScale: number) {
     ease: ANIMATION_CONFIG.fastEase
   }, 0)
 
-  // Segment 2: Slow down progressively over the last 10 cards
+  // Segment 2: Slow down progressively over the last 10 cards, and zoom out slightly so we can clearly see who's next in the near-miss
   tl.to(animState, {
     scrollProgress: overshootProgress,
+    zoomScale: 2.1, // Zoom out from 3.0 to 2.1 to reveal the neighbor
     duration: ANIMATION_CONFIG.slowDuration,
     ease: ANIMATION_CONFIG.slowEase
   }, ANIMATION_CONFIG.fastDuration)
 
-  // Segment 3: Subtle bounce back to exactly 1.0
+  // Segment 3: Subtle bounce back to exactly 1.0 and zoom back in on the winner
   tl.to(animState, {
     scrollProgress: 1.0,
+    zoomScale: ANIMATION_CONFIG.targetScale,
     duration: ANIMATION_CONFIG.bounceDuration,
     ease: ANIMATION_CONFIG.bounceEase
   }, ANIMATION_CONFIG.fastDuration + ANIMATION_CONFIG.slowDuration)
