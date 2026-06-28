@@ -1,5 +1,8 @@
 <template>
-  <div class="relative h-full flex flex-col p-4 justify-between">
+  <div 
+    class="relative h-full flex flex-col p-4 justify-between"
+    :class="store.status === 'morphing' ? 'opacity-0 scale-90 blur-md pointer-events-none transition-all duration-700 ease-in-out' : 'opacity-100 scale-100 blur-none transition-all duration-500'"
+  >
     <!-- Header Summary -->
     <div class="mb-3 flex items-center justify-between border-b border-slate-900 pb-3 transition-opacity duration-500">
       <div>

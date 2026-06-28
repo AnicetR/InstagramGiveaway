@@ -129,21 +129,31 @@
                 />
               </div>
 
-              <!-- States: Reveal and Purges Grid -->
-              <UserGrid 
-                v-else-if="
-                  store.status === 'revealing' || 
-                  store.status === 'purging_likes' || 
-                  store.status === 'purging_follows'
-                " 
-                key="grid"
-              />
+              <!-- Active Draw States Container -->
+              <div v-else key="active-draw" class="w-full h-full relative flex flex-col justify-center">
+                <!-- States: Reveal, Purges Grid, and Morphing -->
+                <UserGrid 
+                  v-if="
+                    store.status === 'revealing' || 
+                    store.status === 'purging_likes' || 
+                    store.status === 'purging_follows' ||
+                    store.status === 'morphing'
+                  " 
+                  key="grid"
+                  :class="{ 'absolute inset-0 z-20': store.status === 'morphing' }"
+                />
 
-              <!-- States: Spinning Roulette and Victory Announcement -->
-              <RouletteTape 
-                v-else-if="store.status === 'spinning' || store.status === 'victory'" 
-                key="tape"
-              />
+                <!-- States: Morphing, Spinning Roulette, and Victory Announcement -->
+                <RouletteTape 
+                  v-if="
+                    store.status === 'morphing' ||
+                    store.status === 'spinning' || 
+                    store.status === 'victory'
+                  " 
+                  key="tape"
+                  :class="{ 'absolute inset-0 z-10': store.status === 'morphing' }"
+                />
+              </div>
 
             </Transition>
           </div>

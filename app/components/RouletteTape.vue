@@ -6,11 +6,10 @@
       
       <!-- Top glowing crosshair pin (Wrapped in centered zero-width container to prevent scaling drift) -->
       <div 
-        class="absolute left-1/2 top-8 w-0 h-0 flex flex-col items-center justify-start overflow-visible z-20 transition-all duration-500"
+        class="absolute left-1/2 top-8 w-0 h-0 flex flex-col items-center justify-start overflow-visible z-20 transition-all duration-700 ease-in-out"
         :class="[
-          (kinematicStep === 'stack' || kinematicStep === 'distributing') ? 'opacity-0 scale-50 pointer-events-none' : '',
-          store.status === 'victory' ? 'opacity-0 scale-75 pointer-events-none' : '',
-          (kinematicStep === 'zoomed' || kinematicStep === 'spinning') ? 'opacity-100 scale-100' : ''
+          !crosshairAppeared ? 'opacity-0 scale-50 pointer-events-none' : 'opacity-100 scale-100',
+          store.status === 'victory' ? 'opacity-0 scale-75 pointer-events-none' : ''
         ]"
       >
         <div 
@@ -24,11 +23,10 @@
       
       <!-- Bottom glowing crosshair pin -->
       <div 
-        class="absolute left-1/2 bottom-8 w-0 h-0 flex flex-col items-center justify-end overflow-visible z-20 transition-all duration-500"
+        class="absolute left-1/2 bottom-8 w-0 h-0 flex flex-col items-center justify-end overflow-visible z-20 transition-all duration-700 ease-in-out"
         :class="[
-          (kinematicStep === 'stack' || kinematicStep === 'distributing') ? 'opacity-0 scale-50 pointer-events-none' : '',
-          store.status === 'victory' ? 'opacity-0 scale-75 pointer-events-none' : '',
-          (kinematicStep === 'zoomed' || kinematicStep === 'spinning') ? 'opacity-100 scale-100' : ''
+          !crosshairAppeared ? 'opacity-0 scale-50 pointer-events-none' : 'opacity-100 scale-100',
+          store.status === 'victory' ? 'opacity-0 scale-75 pointer-events-none' : ''
         ]"
       >
         <div 
@@ -42,11 +40,10 @@
 
       <!-- Center Glowing Crosshair Line -->
       <div 
-        class="absolute left-1/2 inset-y-0 w-0 flex items-center justify-center overflow-visible z-10 transition-all duration-500"
+        class="absolute left-1/2 inset-y-0 w-0 flex items-center justify-center overflow-visible z-10 transition-all duration-700 ease-in-out"
         :class="[
-          (kinematicStep === 'stack' || kinematicStep === 'distributing') ? 'opacity-0 scale-x-0 pointer-events-none' : '',
-          store.status === 'victory' ? 'opacity-0 scale-x-50 pointer-events-none' : '',
-          (kinematicStep === 'zoomed' || kinematicStep === 'spinning') ? 'opacity-100 scale-x-100' : ''
+          !crosshairAppeared ? 'opacity-0 scale-y-0 pointer-events-none' : 'opacity-100 scale-y-100',
+          store.status === 'victory' ? 'opacity-0 scale-y-50 pointer-events-none' : ''
         ]"
       >
         <div 
@@ -60,14 +57,14 @@
         ref="viewportWrapper"
         class="w-full relative bg-slate-900/30 border-y border-slate-900/60 flex items-center transition-[height] duration-500 viewport-wrapper"
         :class="[
-          (kinematicStep === 'stack' || kinematicStep === 'distributing') ? 'overflow-visible' : 'overflow-hidden'
+          kinematicStep === 'morphing' ? 'overflow-visible' : 'overflow-hidden'
         ]"
       >
         <!-- Placeholders Track (Visible only when not fully distributed) -->
         <div 
           v-if="!isDistributed"
-          class="absolute inset-0 flex items-center pointer-events-none transition-opacity duration-500 z-0"
-          :class="kinematicStep === 'stack' ? 'opacity-35' : 'opacity-0'"
+          class="absolute inset-0 flex items-center pointer-events-none transition-opacity duration-700 z-0"
+          :class="kinematicStep === 'morphing' ? 'opacity-35' : 'opacity-0'"
         >
           <!-- Horizontal rail line -->
           <div class="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent"></div>
@@ -97,7 +94,8 @@
               paddingLeft: paddingStyle, 
               paddingRight: paddingStyle
             }"
-            class="flex gap-4 w-max transform-gpu items-center scale-wrapper"
+            class="flex gap-4 w-max transform-gpu items-center scale-wrapper transition-opacity duration-300"
+            :class="{ 'opacity-0 pointer-events-none': kinematicStep === 'morphing' }"
           >
             <div
               v-for="(item, idx) in tapeItems"
@@ -192,13 +190,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useGiveawayStore, type Entrant } from '~/stores/giveaway'
 import gsap from 'gsap'
 
 const store = useGiveawayStore()
-const isDistributed = ref(false)
-const kinematicStep = ref<'stack' | 'distributing' | 'zoomed' | 'spinning' | 'victory'>('stack')
+const isDistributed = ref(store.status !== 'morphing')
+const kinematicStep = ref<'morphing' | 'zoomed' | 'spinning' | 'victory'>(store.status === 'morphing' ? 'morphing' : 'zoomed')
+const crosshairAppeared = ref(false)
 
 const viewportWrapper = ref<HTMLDivElement | null>(null)
 const translationWrapper = ref<HTMLDivElement | null>(null)
@@ -286,7 +285,6 @@ function buildTape() {
   tapeItems.value = items
 }
 
-let floatTween: gsap.core.Tween | null = null
 let startTimeoutId: any = null
 
 function updateDOM(scrollProgress: number, scaleAmount: number) {
@@ -360,87 +358,8 @@ function resetStore() {
   store.reset()
 }
 
-function setupStackAnimation() {
-  if (!scaleWrapper.value) return
-
-  const cardElements = Array.from(scaleWrapper.value.children) as HTMLElement[]
-  if (cardElements.length === 0) return
-
-  // Measure actual viewport center
-  if (translationWrapper.value) {
-    const parent = translationWrapper.value.parentElement
-    if (parent) {
-      crosshairOffset.value = parent.clientWidth / 2
-    }
-  }
-
-  // Position cards in a stack above the tape viewport
-  cardElements.forEach((cardEl, i) => {
-    // Subtle random angle and offset to make it look like a physical card pile
-    const rotation = (Math.random() - 0.5) * 12
-    const xOffset = (Math.random() - 0.5) * 6
-    const yOffset = (Math.random() - 0.5) * 6
-
-    gsap.set(cardEl, {
-      x: -i * CELL_SIZE + xOffset,
-      y: -125 + yOffset, // Floating 125px above the tape line
-      rotation: rotation,
-      zIndex: cardElements.length - i
-    })
-  })
-
-  // Gentle floating idle animation on the stack wrapper to make it feel alive
-  floatTween = gsap.to(scaleWrapper.value, {
-    y: '-=8',
-    duration: 1.8,
-    ease: 'sine.inOut',
-    repeat: -1,
-    yoyo: true
-  })
-}
-
-function runDistributionAnimation() {
-  if (!scaleWrapper.value) return
-
-  const cardElements = Array.from(scaleWrapper.value.children) as HTMLElement[]
-  if (cardElements.length === 0) return
-
-  // Kill the float animation and reset the wrapper Y position
-  if (floatTween) {
-    floatTween.kill()
-    floatTween = null
-    gsap.set(scaleWrapper.value, { y: 0 })
-  }
-
-  kinematicStep.value = 'distributing'
-
-  // Deal / Distribute them back to x: 0, y: 0, rotation: 0
-  gsap.to(cardElements, {
-    x: 0,
-    y: 0,
-    rotation: 0,
-    duration: 1.1,
-    ease: 'back.out(1.2)', // Nice physical bounce on landing
-    stagger: {
-      amount: 1.0,
-      from: 'start'
-    },
-    onComplete: () => {
-      // Clean up inline styles so browser default layout takes over cleanly
-      cardElements.forEach((cardEl) => {
-        gsap.set(cardEl, { clearProps: 'transform,rotation,zIndex' })
-      })
-      isDistributed.value = true
-      
-      // Short delay after distribution completes, then run zoom!
-      startTimeoutId = setTimeout(() => {
-        runZoomAnimation()
-      }, 500)
-    }
-  })
-}
-
 function runZoomAnimation() {
+  isDistributed.value = true
   kinematicStep.value = 'zoomed'
 
   const zoomState = { scaleAmount: 1.0 }
@@ -470,18 +389,28 @@ onMounted(() => {
     }
   }
   nextTick(() => {
-    setupStackAnimation()
-    
-    // Automatically transition from Step 1 to Step 2 after 1.5s
-    startTimeoutId = setTimeout(() => {
-      runDistributionAnimation()
-    }, 1500)
+    crosshairAppeared.value = true
+
+    if (store.status === 'morphing') {
+      kinematicStep.value = 'morphing'
+      isDistributed.value = false
+    } else {
+      isDistributed.value = true
+      startTimeoutId = setTimeout(() => {
+        runZoomAnimation()
+      }, 100)
+    }
   })
+})
+
+watch(() => store.status, (newStatus) => {
+  if (newStatus === 'spinning' && kinematicStep.value === 'morphing') {
+    runZoomAnimation()
+  }
 })
 
 onBeforeUnmount(() => {
   if (startTimeoutId) clearTimeout(startTimeoutId)
-  if (floatTween) floatTween.kill()
 })
 </script>
 
