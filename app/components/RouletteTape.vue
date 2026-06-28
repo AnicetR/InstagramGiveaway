@@ -60,28 +60,6 @@
           kinematicStep === 'morphing' ? 'overflow-visible' : 'overflow-hidden'
         ]"
       >
-        <!-- Placeholders Track (Visible only when not fully distributed) -->
-        <div 
-          v-if="!isDistributed"
-          class="absolute inset-0 flex items-center pointer-events-none transition-opacity duration-700 z-0"
-          :class="kinematicStep === 'morphing' ? 'opacity-35' : 'opacity-0'"
-        >
-          <!-- Horizontal rail line -->
-          <div class="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent"></div>
-          
-          <!-- Dashed frames container -->
-          <div 
-            class="flex gap-4 w-max items-center"
-            :style="{ paddingLeft: paddingStyle, paddingRight: paddingStyle }"
-          >
-            <div
-              v-for="idx in 8" 
-              :key="'placeholder-' + idx"
-              class="flex-shrink-0 w-[100px] h-[100px] border border-dashed border-white/20 rounded-2xl bg-slate-950/20 shadow-inner"
-            ></div>
-          </div>
-        </div>
-
         <!-- Translation Wrapper (Parent) -->
         <div 
           ref="translationWrapper"
