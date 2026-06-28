@@ -140,7 +140,7 @@
                     store.status === 'morphing'
                   " 
                   key="grid"
-                  :class="{ 'absolute inset-0 z-20': store.status === 'morphing' }"
+                  class="absolute inset-0 z-20"
                 />
 
                 <!-- States: Morphing, Spinning Roulette, and Victory Announcement -->
@@ -151,7 +151,7 @@
                     store.status === 'victory'
                   " 
                   key="tape"
-                  :class="{ 'absolute inset-0 z-10': store.status === 'morphing' }"
+                  class="absolute inset-0 z-10"
                 />
               </div>
 

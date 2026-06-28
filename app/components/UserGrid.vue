@@ -1,6 +1,6 @@
 <template>
   <div 
-    class="relative h-full flex flex-col p-4 justify-between"
+    class="absolute inset-0 flex flex-col p-4 justify-between"
     :class="store.status === 'morphing' ? 'opacity-0 scale-90 blur-md pointer-events-none transition-all duration-700 ease-in-out' : 'opacity-100 scale-100 blur-none transition-all duration-500'"
   >
     <!-- Header Summary -->

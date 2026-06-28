@@ -1,5 +1,5 @@
 <template>
-  <div class="relative h-full flex flex-col items-center justify-center select-none overflow-hidden bg-slate-950">
+  <div class="absolute inset-0 flex flex-col items-center justify-center select-none overflow-hidden bg-slate-950">
     
     <!-- Crosshair and Tape Viewport Container -->
     <div class="w-full relative py-12 flex items-center justify-center">
