@@ -42,7 +42,8 @@
         ]"
         :style="status !== 'morphing' ? { 
           gridTemplateColumns: gridStyles.gridTemplateColumns, 
-          gap: gridGapStyle 
+          gap: gridGapStyle,
+          '--card-size': `${cardSize}px`
         } : {
           paddingLeft: 'calc(50% - 50px)',
           paddingRight: 'calc(50% - 50px)'
@@ -51,20 +52,28 @@
         <div
           v-for="user in displayedUsers"
           :key="user.id"
-          class="card-transition shadow-md relative overflow-hidden flex backdrop-blur-md"
+          class="card-transition shadow-md relative overflow-hidden flex flex-col items-center justify-center text-center backdrop-blur-md"
+          :style="status !== 'morphing' ? {
+            width: 'var(--card-size)',
+            height: 'var(--card-size)',
+            padding: 'calc(var(--card-size) * 0.08)',
+            borderRadius: 'calc(var(--card-size) * 0.16)'
+          } : {
+            width: '100px',
+            height: '100px',
+            padding: '10px',
+            borderRadius: '16px'
+          }"
           :class="[
-            // Dynamic classes computed by cardStyles
-            status !== 'morphing' ? cardStyles.card : 'rounded-2xl flex-col items-center justify-center p-3 w-[100px] h-[100px] text-center bg-white/[0.02] border border-white/5 backdrop-blur-sm',
-            
             // Border styling
             status === 'morphing'
-              ? ''
+              ? 'border border-white/5 bg-white/[0.02] backdrop-blur-sm'
               : status === 'purging_likes' && user.has_liked
               ? 'border border-emerald-500/40'
               : status === 'purging_likes' && !user.has_liked
               ? 'border border-red-900/40'
               : status === 'purging_follows' && checkedUserIds[user.id] === 'follower'
-              ? 'border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
+              ? 'border border-emerald-500/70 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
               : status === 'purging_follows' && checkedUserIds[user.id] === 'non-follower'
               ? 'border border-red-900/40'
               : 'border border-white/5',
@@ -77,7 +86,7 @@
               : status === 'purging_likes' && !user.has_liked
               ? 'bg-red-950/10'
               : status === 'purging_follows' && checkedUserIds[user.id] === 'follower'
-              ? 'bg-emerald-950/20'
+              ? 'bg-emerald-950/70'
               : status === 'purging_follows' && checkedUserIds[user.id] === 'non-follower'
               ? 'bg-red-950/10'
               : 'bg-white/[0.03]',
@@ -105,7 +114,15 @@
           <!-- Entrant Avatar -->
           <div 
             class="relative transition-all duration-700 ease-in-out flex-shrink-0"
-            :class="status !== 'morphing' ? cardStyles.avatar : 'w-20 h-20 mb-1.5'"
+            :style="status !== 'morphing' ? {
+              width: 'calc(var(--card-size) * 0.52)',
+              height: 'calc(var(--card-size) * 0.52)',
+              marginBottom: 'calc(var(--card-size) * 0.05)'
+            } : {
+              width: '54px',
+              height: '54px',
+              marginBottom: '4px'
+            }"
           >
             <img 
               :src="user.avatar" 
@@ -118,7 +135,7 @@
             />
             <!-- Status mini indicator dots (only on larger grids) -->
             <div 
-              v-if="status !== 'morphing' && gridStyles.cols <= 3" 
+              v-if="status !== 'morphing' && lockedCols <= 3" 
               class="absolute -bottom-0.5 -right-0.5 flex gap-0.5"
             >
               <span 
@@ -134,22 +151,17 @@
 
           <!-- Text Details -->
           <div 
-            class="flex-1 min-w-0 transition-all duration-700 ease-in-out text-left"
-            :class="status === 'morphing' ? 'text-center w-full' : ''"
+            class="min-w-0 transition-all duration-700 ease-in-out text-center w-full"
           >
             <div 
-              class="font-bold text-slate-100 truncate tracking-tight transition-all duration-700"
-              :class="status !== 'morphing' ? cardStyles.username : 'text-[12px] text-slate-400 font-bold w-full truncate'"
+              class="font-bold text-slate-100 truncate tracking-tight transition-all duration-700 w-full"
+              :style="status !== 'morphing' ? {
+                fontSize: 'calc(var(--card-size) * 0.11)'
+              } : {
+                fontSize: '12px'
+              }"
             >
               {{ user.username }}
-            </div>
-            
-            <!-- Comment (Fades out and collapses based on styling) -->
-            <div 
-              v-if="status !== 'morphing' && cardStyles.comment !== 'hidden'"
-              :class="cardStyles.comment"
-            >
-              {{ user.comment }}
             </div>
           </div>
         </div>
@@ -194,9 +206,9 @@ const scrollContainer = ref<HTMLDivElement | null>(null)
 // Titles depending on the state
 const phaseTitle = computed(() => {
   switch (status.value) {
-    case 'revealing': return 'RÉVÉLATION INITIALE'
-    case 'purging_likes': return 'ÉTAPE 1 : FILTRE DES J\'AIME'
-    case 'purging_follows': return 'ÉTAPE 2 : FILTRE DES ABONNÉS'
+    case 'revealing': return 'COMMENTAIRES ELIGIBLES'
+    case 'purging_likes': return 'FILTRE DES J\'AIME'
+    case 'purging_follows': return 'VÉRIFICATION DES FOLLOWS'
     default: return 'PARTICIPANTS AU CONCOURS'
   }
 })
@@ -241,60 +253,19 @@ const gridGapStyle = computed(() => {
   return '4px'
 })
 
-// Dynamic card inner class styles
-const cardStyles = computed(() => {
-  const cols = gridStyles.value.cols
-  
-  if (cols === 2) {
-    return {
-      card: 'p-3 flex-row items-center gap-3 h-16 rounded-xl w-full',
-      avatar: 'w-10 h-10',
-      username: 'text-[11px] font-bold text-slate-100',
-      comment: 'text-[9px] block text-slate-400 mt-0.5 truncate'
-    }
-  } else if (cols === 3) {
-    return {
-      card: 'p-2 flex-row items-center gap-2 h-12 rounded-xl w-full',
-      avatar: 'w-7.5 h-7.5',
-      username: 'text-[10px] font-bold text-slate-100',
-      comment: 'text-[8px] block text-slate-400 truncate mt-0.5'
-    }
-  } else if (cols === 4) {
-    return {
-      card: 'p-1.5 flex-col items-center justify-center text-center h-16 rounded-lg w-full',
-      avatar: 'w-7.5 h-7.5 mb-1',
-      username: 'text-[8.5px] font-bold text-slate-100 w-full truncate',
-      comment: 'hidden'
-    }
-  } else if (cols === 5) {
-    return {
-      card: 'p-1 flex-col items-center justify-center text-center h-14 rounded-lg w-full',
-      avatar: 'w-6.5 h-6.5 mb-0.5',
-      username: 'text-[7.5px] font-bold text-slate-200 w-full truncate',
-      comment: 'hidden'
-    }
-  } else if (cols === 6) {
-    return {
-      card: 'p-0.5 flex-col items-center justify-center text-center h-11 rounded-md w-full border-white/5',
-      avatar: 'w-5.5 h-5.5 mb-0.5',
-      username: 'text-[6.5px] font-bold text-slate-200 w-full truncate',
-      comment: 'hidden'
-    }
-  } else {
-    return {
-      card: 'p-0.5 flex-col items-center justify-center text-center h-9.5 rounded-md w-full border-white/5',
-      avatar: 'w-5 h-5 mb-0.5',
-      username: 'text-[5.5px] font-medium text-slate-300 w-full truncate',
-      comment: 'hidden'
-    }
-  }
+const cardSize = computed(() => {
+  const cols = lockedCols.value
+  const containerWidth = 360 // Width of container in simulator
+  const gap = cols <= 3 ? 8 : cols <= 5 ? 6 : 4
+  const padding = 16
+  return Math.floor((containerWidth - gap * (cols - 1) - padding * 2) / cols)
 })
 
 // Trigger staggered display of store users
 function staggerReveal() {
   displayedUsers.value = []
   const rawUsers = [...store.users]
-  updateLockedCols(rawUsers.length)
+  updateLockedCols(0)
   let idx = 0
   
   function addNext() {
@@ -302,6 +273,7 @@ function staggerReveal() {
       const user = rawUsers[idx]
       if (user) {
         displayedUsers.value.push(user)
+        updateLockedCols(displayedUsers.value.length)
       }
       idx++
       
@@ -314,11 +286,12 @@ function staggerReveal() {
 }
 
 onMounted(() => {
-  updateLockedCols(store.users.length)
   if (status.value === 'revealing') {
+    updateLockedCols(0)
     staggerReveal()
   } else {
     displayedUsers.value = [...store.users]
+    updateLockedCols(displayedUsers.value.length)
   }
 })
 
@@ -327,14 +300,15 @@ watch(() => store.users, (newUsers) => {
   // We only replace directly if we are not currently staggering the reveal
   if (status.value !== 'revealing') {
     displayedUsers.value = [...newUsers]
-  } else {
     updateLockedCols(newUsers.length)
+  } else {
+    updateLockedCols(displayedUsers.value.length)
   }
 }, { deep: true })
 
 watch(status, (newStatus) => {
   if (newStatus === 'revealing') {
-    updateLockedCols(store.users.length)
+    updateLockedCols(0)
     staggerReveal()
   }
 
