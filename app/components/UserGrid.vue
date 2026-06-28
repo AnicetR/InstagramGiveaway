@@ -1,16 +1,7 @@
 <template>
-  <div 
-    class="relative h-full transition-all duration-1000 ease-in-out flex flex-col justify-between"
-    :class="{ 
-      'p-4': status !== 'morphing',
-      'justify-center items-center py-0 px-0': status === 'morphing'
-    }"
-  >
-    <!-- Header Summary (only visible during reveal and purging) -->
-    <div 
-      v-if="status !== 'morphing'"
-      class="mb-3 flex items-center justify-between border-b border-slate-900 pb-3 transition-opacity duration-500"
-    >
+  <div class="relative h-full flex flex-col p-4 justify-between">
+    <!-- Header Summary -->
+    <div class="mb-3 flex items-center justify-between border-b border-slate-900 pb-3 transition-opacity duration-500">
       <div>
         <h2 class="text-sm font-semibold text-slate-400">
           {{ phaseTitle }}
@@ -27,27 +18,16 @@
     <!-- The Grid Container -->
     <div 
       ref="scrollContainer"
-      class="flex-1 transition-all duration-1000 ease-in-out no-scrollbar flex items-center justify-center w-full"
-      :class="{
-        'py-6 h-[148px] bg-slate-900/30 border-y border-slate-900/60 backdrop-blur-sm relative overflow-visible': status === 'morphing',
-        'overflow-hidden': status !== 'morphing'
-      }"
+      class="flex-1 no-scrollbar flex items-center justify-center w-full overflow-hidden"
     >
       <TransitionGroup 
         name="list" 
         tag="div" 
-        :class="[
-          status === 'morphing'
-            ? 'relative w-full h-full flex items-center justify-center'
-            : 'grid w-full h-max justify-items-stretch content-center p-1'
-        ]"
-        :style="status !== 'morphing' ? { 
+        class="grid w-full h-max justify-items-stretch content-center p-1"
+        :style="{ 
           gridTemplateColumns: gridStyles.gridTemplateColumns, 
           gap: gridGapStyle,
           '--card-size': `${cardSize}px`
-        } : {
-          width: '100%',
-          height: '100%'
         }"
       >
         <div
@@ -55,10 +35,7 @@
           :key="user.id"
           :data-card-id="user.id"
           class="card-transition shadow-md overflow-hidden flex flex-col items-center justify-center text-center backdrop-blur-md"
-          :class="[
-            status === 'morphing' ? 'is-morphing' : '',
-            getUserCardClass(user)
-          ]"
+          :class="getUserCardClass(user)"
         >
           <!-- Elimination Indicator Badges -->
           <div 
@@ -75,10 +52,7 @@
           </div>
 
           <!-- Entrant Avatar -->
-          <div 
-            class="card-avatar-wrapper relative flex-shrink-0"
-            :class="{ 'transition-all duration-700 ease-in-out': status !== 'morphing' }"
-          >
+          <div class="card-avatar-wrapper relative flex-shrink-0 transition-all duration-700 ease-in-out">
             <img 
               :src="user.avatar" 
               class="w-full h-full object-cover border border-slate-700 shadow-sm rounded-full"
@@ -90,7 +64,7 @@
             />
             <!-- Status mini indicator dots (only on larger grids) -->
             <div 
-              v-if="status !== 'morphing' && lockedCols <= 3" 
+              v-if="lockedCols <= 3" 
               class="absolute -bottom-0.5 -right-0.5 flex gap-0.5"
             >
               <span 
@@ -105,14 +79,8 @@
           </div>
 
           <!-- Text Details -->
-          <div 
-            class="min-w-0 text-center w-full"
-            :class="{ 'transition-all duration-700 ease-in-out': status !== 'morphing' }"
-          >
-            <div 
-              class="card-username font-bold text-slate-100 truncate tracking-tight w-full"
-              :class="{ 'transition-all duration-700': status !== 'morphing' }"
-            >
+          <div class="min-w-0 text-center w-full transition-all duration-700 ease-in-out">
+            <div class="card-username font-bold text-slate-100 truncate tracking-tight w-full transition-all duration-700">
               {{ user.username }}
             </div>
           </div>
@@ -143,9 +111,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useGiveawayStore, type Entrant } from '~/stores/giveaway'
-import gsap from 'gsap'
 
 const store = useGiveawayStore()
 const status = computed(() => store.status)
@@ -154,7 +121,6 @@ const status = computed(() => store.status)
 const displayedUsers = ref<Entrant[]>([])
 const showFollowersPopover = ref(false)
 const checkedUserIds = ref<Record<string, 'follower' | 'non-follower'>>({})
-const scrollContainer = ref<HTMLDivElement | null>(null)
 
 // Titles depending on the state
 const phaseTitle = computed(() => {
@@ -225,10 +191,6 @@ const isApproved = (user: Entrant) => {
 
 // Computes dynamic styles and border configurations for each user card
 function getUserCardClass(user: Entrant) {
-  if (status.value === 'morphing') {
-    return 'border border-white/5 bg-white/[0.02] backdrop-blur-sm'
-  }
-
   const classes: string[] = []
 
   if (status.value === 'purging_likes') {
@@ -277,30 +239,6 @@ function staggerReveal() {
   addNext()
 }
 
-function animateToStack() {
-  if (!scrollContainer.value) return
-  const cards = scrollContainer.value.querySelectorAll('.card-transition')
-  if (!cards.length) return
-
-  cards.forEach((cardEl: any, idx: number) => {
-    const randomRot = (Math.random() - 0.5) * 16
-    const randomOffsetX = (Math.random() - 0.5) * 8
-    const randomOffsetY = (Math.random() - 0.5) * 8
-
-    gsap.to(cardEl, {
-      x: randomOffsetX,
-      y: randomOffsetY,
-      rotation: randomRot,
-      // Morph the card size custom property dynamically!
-      '--card-size': '100px',
-      duration: 0.9,
-      ease: 'back.out(1.2)',
-      delay: idx * 0.15, // Satisfying stacking 1 by 1
-      zIndex: idx + 10
-    })
-  })
-}
-
 // Verification process for user subscription verification (purging_follows)
 function startFollowersVerification() {
   checkedUserIds.value = {}
@@ -339,56 +277,10 @@ function startFollowersVerification() {
   checkNext()
 }
 
-// Handles FLIP animation and layout shifts when morphing cards into a stack
-async function handleMorphingAnimation() {
-  // 1. Capture the initial positions of all cards in the grid before layout changes!
-  const cards = scrollContainer.value?.querySelectorAll('.card-transition')
-  const initialPositions = Array.from(cards || []).map((cardEl: any) => {
-    const rect = cardEl.getBoundingClientRect()
-    return {
-      id: cardEl.getAttribute('data-card-id'),
-      left: rect.left,
-      top: rect.top,
-      size: cardSize.value // Store the current card size
-    }
-  })
-
-  // 2. Wait for Vue to update the DOM (container becomes flex/centered, cards become absolute)
-  await nextTick()
-
-  // 3. Capture the new centered positions of all cards and apply the FLIP offset
-  const newCards = scrollContainer.value?.querySelectorAll('.card-transition')
-  newCards?.forEach((cardEl: any) => {
-    const cardId = cardEl.getAttribute('data-card-id')
-    const initial = initialPositions.find(p => p.id === cardId)
-    if (initial) {
-      const newRect = cardEl.getBoundingClientRect()
-      const dx = initial.left - newRect.left
-      const dy = initial.top - newRect.top
-
-      // Set card position back to its original layout position instantly (no visual jump!)
-      // Also lock its --card-size to its original grid size!
-      gsap.set(cardEl, {
-        x: dx,
-        y: dy,
-        '--card-size': `${initial.size}px`,
-        rotation: 0
-      })
-    }
-  })
-
-  // 4. Animate them to the center stack one by one!
-  animateToStack()
-}
-
 onMounted(() => {
   if (status.value === 'revealing') {
     updateLockedCols(0)
     staggerReveal()
-  } else if (status.value === 'morphing') {
-    nextTick(() => {
-      animateToStack()
-    })
   } else {
     displayedUsers.value = [...store.users]
     updateLockedCols(displayedUsers.value.length)
@@ -412,10 +304,6 @@ watch(status, async (newStatus) => {
     staggerReveal()
   }
 
-  if (newStatus === 'morphing') {
-    await handleMorphingAnimation()
-  }
-
   if (newStatus === 'purging_follows') {
     startFollowersVerification()
   } else {
@@ -434,13 +322,6 @@ watch(status, async (newStatus) => {
   padding: calc(var(--card-size) * 0.08);
   border-radius: calc(var(--card-size) * 0.16);
   transition: all 0.7s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.card-transition.is-morphing {
-  position: absolute;
-  transition: background-color 0.7s cubic-bezier(0.25, 1, 0.5, 1),
-              border-color 0.7s cubic-bezier(0.25, 1, 0.5, 1),
-              opacity 0.7s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .card-avatar-wrapper {

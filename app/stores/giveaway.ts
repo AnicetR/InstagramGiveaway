@@ -204,19 +204,15 @@ export const useGiveawayStore = defineStore('giveaway', () => {
       registerTimeout(() => {
         if (status.value !== 'purging_follows') return
         purgeNonFollowers()
-        registerTimeout(transitionToMorph, 1800)
+        registerTimeout(transitionToSpinning, 1800)
       }, followPurgeDelay)
     } else {
-      transitionToMorph()
+      transitionToSpinning()
     }
   }
 
-  function transitionToMorph() {
-    status.value = 'morphing'
-    registerTimeout(() => {
-      if (status.value !== 'morphing') return
-      status.value = 'spinning'
-    }, 2500)
+  function transitionToSpinning() {
+    status.value = 'spinning'
   }
 
   return {

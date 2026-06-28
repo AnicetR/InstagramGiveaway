@@ -129,13 +129,12 @@
                 />
               </div>
 
-              <!-- States: Reveal, Purges, and Morphing Grid -->
+              <!-- States: Reveal and Purges Grid -->
               <UserGrid 
                 v-else-if="
                   store.status === 'revealing' || 
                   store.status === 'purging_likes' || 
-                  store.status === 'purging_follows' || 
-                  store.status === 'morphing'
+                  store.status === 'purging_follows'
                 " 
                 key="grid"
               />
@@ -206,8 +205,8 @@ const transitionName = computed(() => {
 })
 
 const transitionMode = computed(() => {
-  if (store.status === 'spinning' || store.status === 'morphing') {
-    return '' // Simultaneous crossfade for seamless morph-to-spin
+  if (store.status === 'spinning') {
+    return '' // Simultaneous crossfade for seamless transition
   }
   return 'out-in'
 })
