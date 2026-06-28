@@ -27,44 +27,43 @@
     <!-- The Grid Container -->
     <div 
       ref="scrollContainer"
-      class="flex-1 transition-all duration-1000 ease-in-out no-scrollbar flex items-center justify-center w-full overflow-hidden"
+      class="flex-1 transition-all duration-1000 ease-in-out no-scrollbar flex items-center justify-center w-full"
       :class="{
-        'flex flex-row overflow-x-hidden w-full items-center justify-start gap-4 py-6 h-[148px] bg-slate-900/30 border-y border-slate-900/60 backdrop-blur-sm relative': status === 'morphing'
+        'py-6 h-[148px] bg-slate-900/30 border-y border-slate-900/60 backdrop-blur-sm relative overflow-visible': status === 'morphing',
+        'overflow-hidden': status !== 'morphing'
       }"
     >
       <TransitionGroup 
         name="list" 
         tag="div" 
         :class="[
-          status !== 'morphing' 
-            ? 'grid w-full h-max justify-items-stretch content-center p-1' 
-            : 'flex flex-row items-center gap-4 w-max'
+          status === 'morphing'
+            ? 'relative w-full h-full flex items-center justify-center'
+            : 'grid w-full h-max justify-items-stretch content-center p-1'
         ]"
         :style="status !== 'morphing' ? { 
           gridTemplateColumns: gridStyles.gridTemplateColumns, 
           gap: gridGapStyle,
           '--card-size': `${cardSize}px`
         } : {
-          paddingLeft: 'calc(50% - 50px)',
-          paddingRight: 'calc(50% - 50px)'
+          width: '100%',
+          height: '100%'
         }"
       >
         <div
           v-for="user in displayedUsers"
           :key="user.id"
-          class="card-transition shadow-md relative overflow-hidden flex flex-col items-center justify-center text-center backdrop-blur-md"
-          :style="status !== 'morphing' ? {
+          :data-card-id="user.id"
+          class="card-transition shadow-md overflow-hidden flex flex-col items-center justify-center text-center backdrop-blur-md"
+          :style="{
+            position: status === 'morphing' ? 'absolute' : 'relative',
             width: 'var(--card-size)',
             height: 'var(--card-size)',
             padding: 'calc(var(--card-size) * 0.08)',
             borderRadius: 'calc(var(--card-size) * 0.16)'
-          } : {
-            width: '100px',
-            height: '100px',
-            padding: '10px',
-            borderRadius: '16px'
           }"
           :class="[
+            status === 'morphing' ? 'is-morphing' : '',
             // Border styling
             status === 'morphing'
               ? 'border border-white/5 bg-white/[0.02] backdrop-blur-sm'
@@ -113,15 +112,12 @@
 
           <!-- Entrant Avatar -->
           <div 
-            class="relative transition-all duration-700 ease-in-out flex-shrink-0"
-            :style="status !== 'morphing' ? {
+            class="relative flex-shrink-0"
+            :class="status !== 'morphing' ? 'transition-all duration-700 ease-in-out' : ''"
+            :style="{
               width: 'calc(var(--card-size) * 0.52)',
               height: 'calc(var(--card-size) * 0.52)',
               marginBottom: 'calc(var(--card-size) * 0.05)'
-            } : {
-              width: '54px',
-              height: '54px',
-              marginBottom: '4px'
             }"
           >
             <img 
@@ -151,14 +147,14 @@
 
           <!-- Text Details -->
           <div 
-            class="min-w-0 transition-all duration-700 ease-in-out text-center w-full"
+            class="min-w-0 text-center w-full"
+            :class="status !== 'morphing' ? 'transition-all duration-700 ease-in-out' : ''"
           >
             <div 
-              class="font-bold text-slate-100 truncate tracking-tight transition-all duration-700 w-full"
-              :style="status !== 'morphing' ? {
+              class="font-bold text-slate-100 truncate tracking-tight w-full"
+              :class="status !== 'morphing' ? 'transition-all duration-700' : ''"
+              :style="{
                 fontSize: 'calc(var(--card-size) * 0.11)'
-              } : {
-                fontSize: '12px'
               }"
             >
               {{ user.username }}
@@ -193,6 +189,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useGiveawayStore, type Entrant } from '~/stores/giveaway'
+import gsap from 'gsap'
 
 const store = useGiveawayStore()
 const status = computed(() => store.status)
@@ -285,10 +282,38 @@ function staggerReveal() {
   addNext()
 }
 
+function animateToStack(immediate = false) {
+  if (!scrollContainer.value) return
+  const cards = scrollContainer.value.querySelectorAll('.card-transition')
+  if (!cards.length) return
+
+  cards.forEach((cardEl: any, idx: number) => {
+    const randomRot = (Math.random() - 0.5) * 16
+    const randomOffsetX = (Math.random() - 0.5) * 8
+    const randomOffsetY = (Math.random() - 0.5) * 8
+
+    gsap.to(cardEl, {
+      x: randomOffsetX,
+      y: randomOffsetY,
+      rotation: randomRot,
+      // Morph the card size custom property dynamically!
+      '--card-size': '100px',
+      duration: 0.9,
+      ease: 'back.out(1.2)',
+      delay: idx * 0.15, // Satisfying stacking 1 by 1
+      zIndex: idx + 10
+    })
+  })
+}
+
 onMounted(() => {
   if (status.value === 'revealing') {
     updateLockedCols(0)
     staggerReveal()
+  } else if (status.value === 'morphing') {
+    nextTick(() => {
+      animateToStack(true)
+    })
   } else {
     displayedUsers.value = [...store.users]
     updateLockedCols(displayedUsers.value.length)
@@ -306,10 +331,51 @@ watch(() => store.users, (newUsers) => {
   }
 }, { deep: true })
 
-watch(status, (newStatus) => {
+watch(status, async (newStatus) => {
   if (newStatus === 'revealing') {
     updateLockedCols(0)
     staggerReveal()
+  }
+
+  if (newStatus === 'morphing') {
+    // 1. Capture the initial positions of all cards in the grid before layout changes!
+    const cards = scrollContainer.value?.querySelectorAll('.card-transition')
+    const initialPositions = Array.from(cards || []).map((cardEl: any) => {
+      const rect = cardEl.getBoundingClientRect()
+      return {
+        id: cardEl.getAttribute('data-card-id'),
+        left: rect.left,
+        top: rect.top,
+        size: cardSize.value // Store the current card size
+      }
+    })
+
+    // 2. Wait for Vue to update the DOM (container becomes flex/centered, cards become absolute)
+    await nextTick()
+
+    // 3. Capture the new centered positions of all cards and apply the FLIP offset
+    const newCards = scrollContainer.value?.querySelectorAll('.card-transition')
+    newCards?.forEach((cardEl: any) => {
+      const cardId = cardEl.getAttribute('data-card-id')
+      const initial = initialPositions.find(p => p.id === cardId)
+      if (initial) {
+        const newRect = cardEl.getBoundingClientRect()
+        const dx = initial.left - newRect.left
+        const dy = initial.top - newRect.top
+
+        // Set card position back to its original layout position instantly (no visual jump!)
+        // Also lock its --card-size to its original grid size!
+        gsap.set(cardEl, {
+          x: dx,
+          y: dy,
+          '--card-size': `${initial.size}px`,
+          rotation: 0
+        })
+      }
+    })
+
+    // 4. Animate them to the center stack one by one!
+    animateToStack()
   }
 
   if (newStatus === 'purging_follows') {
@@ -318,7 +384,7 @@ watch(status, (newStatus) => {
     if (rawUsers.length > 0) {
       // Calculate dynamic interval to fit checking inside the dynamic phase duration
       // Phase duration in store is: Math.max(1500, users.value.length * 85)
-      const phaseDuration = Math.max(1500, rawUsers.length * 85)
+      const phaseDuration = Math.max(1500, 2500 / rawUsers.length)
       const checkInterval = (phaseDuration - 300) / rawUsers.length
       let idx = 0
       
@@ -361,6 +427,12 @@ watch(status, (newStatus) => {
 /* Card layout/dimensions transition rules */
 .card-transition {
   transition: all 0.7s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.card-transition.is-morphing {
+  transition: background-color 0.7s cubic-bezier(0.25, 1, 0.5, 1),
+              border-color 0.7s cubic-bezier(0.25, 1, 0.5, 1),
+              opacity 0.7s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 /* Vue Transition Group Animation styling */

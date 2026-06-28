@@ -6,8 +6,12 @@
       
       <!-- Top glowing crosshair pin (Wrapped in centered zero-width container to prevent scaling drift) -->
       <div 
-        class="absolute left-1/2 top-8 w-0 h-0 flex flex-col items-center justify-start overflow-visible z-20 transition-all duration-300"
-        :class="store.status === 'victory' ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100'"
+        class="absolute left-1/2 top-8 w-0 h-0 flex flex-col items-center justify-start overflow-visible z-20 transition-all duration-500"
+        :class="[
+          !isDistributed ? 'opacity-0 scale-50 pointer-events-none' : '',
+          store.status === 'victory' ? 'opacity-0 scale-75 pointer-events-none' : '',
+          isDistributed && store.status !== 'victory' ? 'opacity-100 scale-100' : ''
+        ]"
       >
         <div 
           ref="crosshairTop" 
@@ -21,8 +25,12 @@
       
       <!-- Bottom glowing crosshair pin -->
       <div 
-        class="absolute left-1/2 bottom-8 w-0 h-0 flex flex-col items-center justify-end overflow-visible z-20 transition-all duration-300"
-        :class="store.status === 'victory' ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100'"
+        class="absolute left-1/2 bottom-8 w-0 h-0 flex flex-col items-center justify-end overflow-visible z-20 transition-all duration-500"
+        :class="[
+          !isDistributed ? 'opacity-0 scale-50 pointer-events-none' : '',
+          store.status === 'victory' ? 'opacity-0 scale-75 pointer-events-none' : '',
+          isDistributed && store.status !== 'victory' ? 'opacity-100 scale-100' : ''
+        ]"
       >
         <div 
           ref="crosshairBottom" 
@@ -36,8 +44,12 @@
 
       <!-- Center Glowing Crosshair Line -->
       <div 
-        class="absolute left-1/2 inset-y-0 w-0 flex items-center justify-center overflow-visible z-10 transition-all duration-300"
-        :class="store.status === 'victory' ? 'opacity-0 scale-x-50 pointer-events-none' : 'opacity-100 scale-x-100'"
+        class="absolute left-1/2 inset-y-0 w-0 flex items-center justify-center overflow-visible z-10 transition-all duration-500"
+        :class="[
+          !isDistributed ? 'opacity-0 scale-x-0 pointer-events-none' : '',
+          store.status === 'victory' ? 'opacity-0 scale-x-50 pointer-events-none' : '',
+          isDistributed && store.status !== 'victory' ? 'opacity-100 scale-x-100' : ''
+        ]"
       >
         <div 
           ref="crosshairLine" 
@@ -72,8 +84,9 @@
             <div
               v-for="(item, idx) in tapeItems"
               :key="idx"
-              class="flex-shrink-0 flex flex-col items-center justify-center p-3 bg-white/[0.02] border border-white/5 rounded-2xl w-[100px] h-[100px] text-center transition-all duration-500 backdrop-blur-sm"
+              class="flex-shrink-0 flex flex-col items-center justify-center p-3 bg-white/[0.02] border rounded-2xl w-[100px] h-[100px] text-center backdrop-blur-sm"
               :class="[
+                isDistributed ? 'transition-all duration-500' : '',
                 store.status === 'victory' && idx !== winningIndex 
                   ? 'opacity-25 scale-90 border-white/5' 
                   : 'border-white/5',
@@ -166,6 +179,7 @@ import { useGiveawayStore, type Entrant } from '~/stores/giveaway'
 import gsap from 'gsap'
 
 const store = useGiveawayStore()
+const isDistributed = ref(false)
 
 const viewportWrapper = ref<HTMLDivElement | null>(null)
 const translationWrapper = ref<HTMLDivElement | null>(null)
@@ -338,6 +352,60 @@ function resetStore() {
   store.reset()
 }
 
+function runDistributionAnimation() {
+  if (!scaleWrapper.value) return
+
+  const cardElements = Array.from(scaleWrapper.value.children) as HTMLElement[]
+  if (cardElements.length === 0) return
+
+  // Measure actual viewport center
+  if (translationWrapper.value) {
+    const parent = translationWrapper.value.parentElement
+    if (parent) {
+      crosshairOffset.value = parent.clientWidth / 2
+    }
+  }
+
+  // Phase 1: Stack cards in the center immediately
+  cardElements.forEach((cardEl, i) => {
+    const rotation = (Math.random() - 0.5) * 16
+    const xOffset = (Math.random() - 0.5) * 8
+    const yOffset = (Math.random() - 0.5) * 8
+
+    gsap.set(cardEl, {
+      x: -i * CELL_SIZE + xOffset,
+      y: yOffset,
+      rotation: rotation,
+      zIndex: cardElements.length - i
+    })
+  })
+
+  // Phase 2: Deal / Distribute them back to x: 0, y: 0, rotation: 0
+  gsap.to(cardElements, {
+    x: 0,
+    y: 0,
+    rotation: 0,
+    duration: 1.2,
+    ease: 'power2.out',
+    stagger: {
+      amount: 0.8,
+      from: 'start'
+    },
+    onComplete: () => {
+      // Clean up inline styles so browser default layout takes over cleanly
+      cardElements.forEach((cardEl) => {
+        gsap.set(cardEl, { clearProps: 'transform,rotation,zIndex' })
+      })
+      isDistributed.value = true
+      
+      // Short delay after distribution completes, then spin!
+      setTimeout(() => {
+        startSpin()
+      }, 400)
+    }
+  })
+}
+
 onMounted(() => {
   buildTape()
   // Measure actual viewport center immediately on mount to prevent layout shifts
@@ -348,7 +416,7 @@ onMounted(() => {
     }
   }
   nextTick(() => {
-    setTimeout(startSpin, ANIMATION_CONFIG.spinDelayMs)
+    runDistributionAnimation()
   })
 })
 </script>
