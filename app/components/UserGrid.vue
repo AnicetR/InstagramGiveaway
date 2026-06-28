@@ -51,36 +51,52 @@
         <div
           v-for="user in displayedUsers"
           :key="user.id"
-          class="card-transition bg-white/[0.03] border border-white/5 shadow-md relative overflow-hidden flex backdrop-blur-md"
+          class="card-transition shadow-md relative overflow-hidden flex backdrop-blur-md"
           :class="[
             // Dynamic classes computed by cardStyles
             status !== 'morphing' ? cardStyles.card : 'rounded-2xl flex-col items-center justify-center p-3 w-[100px] h-[100px] text-center bg-white/[0.02] border border-white/5 backdrop-blur-sm',
             
-            // Like Purge Phase Grayscale
-            status === 'purging_likes' && !user.has_liked 
-              ? 'grayscale opacity-25 scale-95 border-red-900/40 bg-red-950/10' 
-              : '',
-            
-            // Follower Purge Phase Grayscale
-            status === 'purging_follows' && !user.is_follower 
-              ? 'grayscale opacity-25 scale-95 border-red-900/40 bg-red-950/10' 
-              : '',
+            // Border styling
+            status === 'morphing'
+              ? ''
+              : status === 'purging_likes' && user.has_liked
+              ? 'border border-emerald-500/40'
+              : status === 'purging_likes' && !user.has_liked
+              ? 'border border-red-900/40'
+              : status === 'purging_follows' && checkedUserIds[user.id] === 'follower'
+              ? 'border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.15)] animate-pulse'
+              : status === 'purging_follows' && checkedUserIds[user.id] === 'non-follower'
+              ? 'border border-red-900/40'
+              : 'border border-white/5',
 
-            // Survivors styling
-            (status === 'purging_likes' && user.has_liked) || (status === 'purging_follows' && user.is_follower)
-              ? 'border-emerald-500/40 bg-emerald-950/20 shadow-[0_0_12px_rgba(16,185,129,0.15)]' 
+            // Background styling
+            status === 'morphing'
+              ? ''
+              : status === 'purging_likes' && user.has_liked
+              ? 'bg-emerald-950/20'
+              : status === 'purging_likes' && !user.has_liked
+              ? 'bg-red-950/10'
+              : status === 'purging_follows' && checkedUserIds[user.id] === 'follower'
+              ? 'bg-emerald-950/20'
+              : status === 'purging_follows' && checkedUserIds[user.id] === 'non-follower'
+              ? 'bg-red-950/10'
+              : 'bg-white/[0.03]',
+
+            // Grayscale / Opacity / Scale for eliminated cards
+            (status === 'purging_likes' && !user.has_liked) || (status === 'purging_follows' && checkedUserIds[user.id] === 'non-follower')
+              ? 'grayscale opacity-25 scale-95'
               : ''
           ]"
         >
           <!-- Elimination Indicator Badges -->
           <div 
-            v-if="status === 'purging_likes' && !user.has_liked" 
+            v-if="status === 'purging_likes' && !user.has_liked"
             class="absolute top-0.5 right-0.5 bg-red-500/90 text-white rounded-full p-0.5 animate-pulse z-10 scale-75"
           >
             <Icon name="mdi:heart-off" class="w-3.5 h-3.5" />
           </div>
           <div 
-            v-if="status === 'purging_follows' && !user.is_follower" 
+            v-if="status === 'purging_follows' && checkedUserIds[user.id] === 'non-follower'" 
             class="absolute top-0.5 right-0.5 bg-red-500/90 text-white rounded-full p-0.5 animate-pulse z-10 scale-75"
           >
             <Icon name="mdi:account-remove" class="w-3.5 h-3.5" />
@@ -95,7 +111,7 @@
               :src="user.avatar" 
               class="w-full h-full object-cover border border-slate-700 shadow-sm rounded-full"
               :class="{
-                'border-emerald-400': (status === 'purging_likes' && user.has_liked) || (status === 'purging_follows' && user.is_follower)
+                'border-emerald-400': (status === 'purging_likes' && user.has_liked) || (status === 'purging_follows' && checkedUserIds[user.id] === 'follower')
               }"
               @error="handleAvatarError($event, user.username)"
               alt="Avatar"
@@ -172,6 +188,7 @@ const status = computed(() => store.status)
 // Local array to handle staggered loading entry animation
 const displayedUsers = ref<Entrant[]>([])
 const showFollowersPopover = ref(false)
+const checkedUserIds = ref<Record<string, 'follower' | 'non-follower'>>({})
 const scrollContainer = ref<HTMLDivElement | null>(null)
 
 // Titles depending on the state
@@ -322,15 +339,46 @@ watch(status, (newStatus) => {
   }
 
   if (newStatus === 'purging_follows') {
-    const allFollowers = store.users.every(u => u.is_follower)
-    if (allFollowers && store.users.length > 0) {
-      showFollowersPopover.value = true
-      setTimeout(() => {
-        showFollowersPopover.value = false
-      }, 2500)
+    checkedUserIds.value = {}
+    const rawUsers = [...displayedUsers.value]
+    if (rawUsers.length > 0) {
+      // Calculate dynamic interval to fit checking inside the dynamic phase duration
+      // Phase duration in store is: Math.max(1500, users.value.length * 85)
+      const phaseDuration = Math.max(1500, rawUsers.length * 85)
+      const checkInterval = (phaseDuration - 300) / rawUsers.length
+      let idx = 0
+      
+      function checkNext() {
+        if (idx < rawUsers.length && status.value === 'purging_follows') {
+          const user = rawUsers[idx]
+          if (user) {
+            // Re-assign object to trigger ref reactivity explicitly
+            checkedUserIds.value = { 
+              ...checkedUserIds.value, 
+              [user.id]: user.is_follower ? 'follower' : 'non-follower' 
+            }
+            
+            setTimeout(() => {
+              idx++
+              checkNext()
+            }, checkInterval)
+          }
+        } else if (idx >= rawUsers.length && status.value === 'purging_follows') {
+          const allFollowers = rawUsers.every(u => u.is_follower)
+          if (allFollowers && rawUsers.length > 0) {
+            showFollowersPopover.value = true
+            setTimeout(() => {
+              showFollowersPopover.value = false
+            }, 1800)
+          }
+        }
+      }
+      
+      checkNext()
     }
   } else {
     showFollowersPopover.value = false
+    checkedUserIds.value = {}
   }
 })
 </script>
