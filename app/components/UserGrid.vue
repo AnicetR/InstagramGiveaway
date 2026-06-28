@@ -55,56 +55,20 @@
           :key="user.id"
           :data-card-id="user.id"
           class="card-transition shadow-md overflow-hidden flex flex-col items-center justify-center text-center backdrop-blur-md"
-          :style="{
-            position: status === 'morphing' ? 'absolute' : 'relative',
-            width: 'var(--card-size)',
-            height: 'var(--card-size)',
-            padding: 'calc(var(--card-size) * 0.08)',
-            borderRadius: 'calc(var(--card-size) * 0.16)'
-          }"
           :class="[
             status === 'morphing' ? 'is-morphing' : '',
-            // Border styling
-            status === 'morphing'
-              ? 'border border-white/5 bg-white/[0.02] backdrop-blur-sm'
-              : status === 'purging_likes' && user.has_liked
-              ? 'border border-emerald-500/40'
-              : status === 'purging_likes' && !user.has_liked
-              ? 'border border-red-900/40'
-              : status === 'purging_follows' && checkedUserIds[user.id] === 'follower'
-              ? 'border border-emerald-500/70 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
-              : status === 'purging_follows' && checkedUserIds[user.id] === 'non-follower'
-              ? 'border border-red-900/40'
-              : 'border border-white/5',
-
-            // Background styling
-            status === 'morphing'
-              ? ''
-              : status === 'purging_likes' && user.has_liked
-              ? 'bg-emerald-950/20'
-              : status === 'purging_likes' && !user.has_liked
-              ? 'bg-red-950/10'
-              : status === 'purging_follows' && checkedUserIds[user.id] === 'follower'
-              ? 'bg-emerald-950/70'
-              : status === 'purging_follows' && checkedUserIds[user.id] === 'non-follower'
-              ? 'bg-red-950/10'
-              : 'bg-white/[0.03]',
-
-            // Grayscale / Opacity / Scale for eliminated cards
-            (status === 'purging_likes' && !user.has_liked) || (status === 'purging_follows' && checkedUserIds[user.id] === 'non-follower')
-              ? 'grayscale opacity-25 scale-95'
-              : ''
+            getUserCardClass(user)
           ]"
         >
           <!-- Elimination Indicator Badges -->
           <div 
-            v-if="status === 'purging_likes' && !user.has_liked"
+            v-if="isEliminatedFromLikes(user)"
             class="absolute top-0.5 right-0.5 bg-red-500/90 text-white rounded-full p-0.5 animate-pulse z-10 scale-75"
           >
             <Icon name="mdi:heart-off" class="w-3.5 h-3.5" />
           </div>
           <div 
-            v-if="status === 'purging_follows' && checkedUserIds[user.id] === 'non-follower'" 
+            v-if="isEliminatedFromFollows(user)" 
             class="absolute top-0.5 right-0.5 bg-red-500/90 text-white rounded-full p-0.5 animate-pulse z-10 scale-75"
           >
             <Icon name="mdi:account-remove" class="w-3.5 h-3.5" />
@@ -112,19 +76,14 @@
 
           <!-- Entrant Avatar -->
           <div 
-            class="relative flex-shrink-0"
-            :class="status !== 'morphing' ? 'transition-all duration-700 ease-in-out' : ''"
-            :style="{
-              width: 'calc(var(--card-size) * 0.52)',
-              height: 'calc(var(--card-size) * 0.52)',
-              marginBottom: 'calc(var(--card-size) * 0.05)'
-            }"
+            class="card-avatar-wrapper relative flex-shrink-0"
+            :class="{ 'transition-all duration-700 ease-in-out': status !== 'morphing' }"
           >
             <img 
               :src="user.avatar" 
               class="w-full h-full object-cover border border-slate-700 shadow-sm rounded-full"
               :class="{
-                'border-emerald-400': (status === 'purging_likes' && user.has_liked) || (status === 'purging_follows' && checkedUserIds[user.id] === 'follower')
+                'border-emerald-400': isApproved(user)
               }"
               @error="handleAvatarError($event, user.username)"
               alt="Avatar"
@@ -148,14 +107,11 @@
           <!-- Text Details -->
           <div 
             class="min-w-0 text-center w-full"
-            :class="status !== 'morphing' ? 'transition-all duration-700 ease-in-out' : ''"
+            :class="{ 'transition-all duration-700 ease-in-out': status !== 'morphing' }"
           >
             <div 
-              class="font-bold text-slate-100 truncate tracking-tight w-full"
-              :class="status !== 'morphing' ? 'transition-all duration-700' : ''"
-              :style="{
-                fontSize: 'calc(var(--card-size) * 0.11)'
-              }"
+              class="card-username font-bold text-slate-100 truncate tracking-tight w-full"
+              :class="{ 'transition-all duration-700': status !== 'morphing' }"
             >
               {{ user.username }}
             </div>
@@ -258,6 +214,45 @@ const cardSize = computed(() => {
   return Math.floor((containerWidth - gap * (cols - 1) - padding * 2) / cols)
 })
 
+// Helper predicates for user elimination/approval states
+const isEliminatedFromLikes = (user: Entrant) => status.value === 'purging_likes' && !user.has_liked
+const isEliminatedFromFollows = (user: Entrant) => status.value === 'purging_follows' && checkedUserIds.value[user.id] === 'non-follower'
+const isApproved = (user: Entrant) => {
+  if (status.value === 'purging_likes') return user.has_liked
+  if (status.value === 'purging_follows') return checkedUserIds.value[user.id] === 'follower'
+  return false
+}
+
+// Computes dynamic styles and border configurations for each user card
+function getUserCardClass(user: Entrant) {
+  if (status.value === 'morphing') {
+    return 'border border-white/5 bg-white/[0.02] backdrop-blur-sm'
+  }
+
+  const classes: string[] = []
+
+  if (status.value === 'purging_likes') {
+    if (user.has_liked) {
+      classes.push('border border-emerald-500/40 bg-emerald-950/20')
+    } else {
+      classes.push('border border-red-900/40 bg-red-950/10 grayscale opacity-25 scale-95')
+    }
+  } else if (status.value === 'purging_follows') {
+    const followState = checkedUserIds.value[user.id]
+    if (followState === 'follower') {
+      classes.push('border border-emerald-500/70 shadow-[0_0_12px_rgba(16,185,129,0.15)] bg-emerald-950/70')
+    } else if (followState === 'non-follower') {
+      classes.push('border border-red-900/40 bg-red-950/10 grayscale opacity-25 scale-95')
+    } else {
+      classes.push('border border-white/5 bg-white/[0.03]')
+    }
+  } else {
+    classes.push('border border-white/5 bg-white/[0.03]')
+  }
+
+  return classes.join(' ')
+}
+
 // Trigger staggered display of store users
 function staggerReveal() {
   displayedUsers.value = []
@@ -282,7 +277,7 @@ function staggerReveal() {
   addNext()
 }
 
-function animateToStack(immediate = false) {
+function animateToStack() {
   if (!scrollContainer.value) return
   const cards = scrollContainer.value.querySelectorAll('.card-transition')
   if (!cards.length) return
@@ -306,13 +301,93 @@ function animateToStack(immediate = false) {
   })
 }
 
+// Verification process for user subscription verification (purging_follows)
+function startFollowersVerification() {
+  checkedUserIds.value = {}
+  const rawUsers = [...displayedUsers.value]
+  if (rawUsers.length === 0) return
+
+  const phaseDuration = Math.max(1500, 2500 / rawUsers.length)
+  const checkInterval = (phaseDuration - 300) / rawUsers.length
+  let idx = 0
+  
+  function checkNext() {
+    if (status.value !== 'purging_follows') return
+
+    if (idx < rawUsers.length) {
+      const user = rawUsers[idx]
+      if (user) {
+        // Re-assign object to trigger ref reactivity explicitly
+        checkedUserIds.value = { 
+          ...checkedUserIds.value, 
+          [user.id]: user.is_follower ? 'follower' : 'non-follower' 
+        }
+        idx++
+        setTimeout(checkNext, checkInterval)
+      }
+    } else {
+      const allFollowers = rawUsers.every(u => u.is_follower)
+      if (allFollowers) {
+        showFollowersPopover.value = true
+        setTimeout(() => {
+          showFollowersPopover.value = false
+        }, 1800)
+      }
+    }
+  }
+  
+  checkNext()
+}
+
+// Handles FLIP animation and layout shifts when morphing cards into a stack
+async function handleMorphingAnimation() {
+  // 1. Capture the initial positions of all cards in the grid before layout changes!
+  const cards = scrollContainer.value?.querySelectorAll('.card-transition')
+  const initialPositions = Array.from(cards || []).map((cardEl: any) => {
+    const rect = cardEl.getBoundingClientRect()
+    return {
+      id: cardEl.getAttribute('data-card-id'),
+      left: rect.left,
+      top: rect.top,
+      size: cardSize.value // Store the current card size
+    }
+  })
+
+  // 2. Wait for Vue to update the DOM (container becomes flex/centered, cards become absolute)
+  await nextTick()
+
+  // 3. Capture the new centered positions of all cards and apply the FLIP offset
+  const newCards = scrollContainer.value?.querySelectorAll('.card-transition')
+  newCards?.forEach((cardEl: any) => {
+    const cardId = cardEl.getAttribute('data-card-id')
+    const initial = initialPositions.find(p => p.id === cardId)
+    if (initial) {
+      const newRect = cardEl.getBoundingClientRect()
+      const dx = initial.left - newRect.left
+      const dy = initial.top - newRect.top
+
+      // Set card position back to its original layout position instantly (no visual jump!)
+      // Also lock its --card-size to its original grid size!
+      gsap.set(cardEl, {
+        x: dx,
+        y: dy,
+        '--card-size': `${initial.size}px`,
+        rotation: 0
+      })
+    }
+  })
+
+  // 4. Animate them to the center stack one by one!
+  animateToStack()
+}
+
 onMounted(() => {
   if (status.value === 'revealing') {
     updateLockedCols(0)
     staggerReveal()
   } else if (status.value === 'morphing') {
     nextTick(() => {
-      animateToStack(true)
+      animateToStack()
     })
   } else {
     displayedUsers.value = [...store.users]
@@ -338,84 +413,11 @@ watch(status, async (newStatus) => {
   }
 
   if (newStatus === 'morphing') {
-    // 1. Capture the initial positions of all cards in the grid before layout changes!
-    const cards = scrollContainer.value?.querySelectorAll('.card-transition')
-    const initialPositions = Array.from(cards || []).map((cardEl: any) => {
-      const rect = cardEl.getBoundingClientRect()
-      return {
-        id: cardEl.getAttribute('data-card-id'),
-        left: rect.left,
-        top: rect.top,
-        size: cardSize.value // Store the current card size
-      }
-    })
-
-    // 2. Wait for Vue to update the DOM (container becomes flex/centered, cards become absolute)
-    await nextTick()
-
-    // 3. Capture the new centered positions of all cards and apply the FLIP offset
-    const newCards = scrollContainer.value?.querySelectorAll('.card-transition')
-    newCards?.forEach((cardEl: any) => {
-      const cardId = cardEl.getAttribute('data-card-id')
-      const initial = initialPositions.find(p => p.id === cardId)
-      if (initial) {
-        const newRect = cardEl.getBoundingClientRect()
-        const dx = initial.left - newRect.left
-        const dy = initial.top - newRect.top
-
-        // Set card position back to its original layout position instantly (no visual jump!)
-        // Also lock its --card-size to its original grid size!
-        gsap.set(cardEl, {
-          x: dx,
-          y: dy,
-          '--card-size': `${initial.size}px`,
-          rotation: 0
-        })
-      }
-    })
-
-    // 4. Animate them to the center stack one by one!
-    animateToStack()
+    await handleMorphingAnimation()
   }
 
   if (newStatus === 'purging_follows') {
-    checkedUserIds.value = {}
-    const rawUsers = [...displayedUsers.value]
-    if (rawUsers.length > 0) {
-      // Calculate dynamic interval to fit checking inside the dynamic phase duration
-      // Phase duration in store is: Math.max(1500, users.value.length * 85)
-      const phaseDuration = Math.max(1500, 2500 / rawUsers.length)
-      const checkInterval = (phaseDuration - 300) / rawUsers.length
-      let idx = 0
-      
-      function checkNext() {
-        if (idx < rawUsers.length && status.value === 'purging_follows') {
-          const user = rawUsers[idx]
-          if (user) {
-            // Re-assign object to trigger ref reactivity explicitly
-            checkedUserIds.value = { 
-              ...checkedUserIds.value, 
-              [user.id]: user.is_follower ? 'follower' : 'non-follower' 
-            }
-            
-            setTimeout(() => {
-              idx++
-              checkNext()
-            }, checkInterval)
-          }
-        } else if (idx >= rawUsers.length && status.value === 'purging_follows') {
-          const allFollowers = rawUsers.every(u => u.is_follower)
-          if (allFollowers && rawUsers.length > 0) {
-            showFollowersPopover.value = true
-            setTimeout(() => {
-              showFollowersPopover.value = false
-            }, 1800)
-          }
-        }
-      }
-      
-      checkNext()
-    }
+    startFollowersVerification()
   } else {
     showFollowersPopover.value = false
     checkedUserIds.value = {}
@@ -426,13 +428,29 @@ watch(status, async (newStatus) => {
 <style scoped>
 /* Card layout/dimensions transition rules */
 .card-transition {
+  position: relative;
+  width: var(--card-size);
+  height: var(--card-size);
+  padding: calc(var(--card-size) * 0.08);
+  border-radius: calc(var(--card-size) * 0.16);
   transition: all 0.7s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .card-transition.is-morphing {
+  position: absolute;
   transition: background-color 0.7s cubic-bezier(0.25, 1, 0.5, 1),
               border-color 0.7s cubic-bezier(0.25, 1, 0.5, 1),
               opacity 0.7s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.card-avatar-wrapper {
+  width: calc(var(--card-size) * 0.52);
+  height: calc(var(--card-size) * 0.52);
+  margin-bottom: calc(var(--card-size) * 0.05);
+}
+
+.card-username {
+  font-size: calc(var(--card-size) * 0.11);
 }
 
 /* Vue Transition Group Animation styling */
