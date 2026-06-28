@@ -222,20 +222,26 @@ const CELL_SIZE = TILE_WIDTH + GAP // Total size of cell including offset
 // CONFIGURATION DU TIRAGE ET DES ANIMATIONS (Modifiez ces valeurs pour ajuster)
 // ============================================================================
 const ANIMATION_CONFIG = {
-  // Dépassement en fraction de carte (ex. 0.3 = 30% d'une carte)
-  overshootCardFraction: 0.35,
+  // Dépassement en fraction de carte (ex. 0.20 = 20% d'une carte)
+  overshootCardFraction: 0.20,
 
-  // Durée (en secondes) de la phase principale de rotation/décélération
-  spinDuration: 10.2,
+  // Durée (en secondes) de la phase de rotation rapide (Segment 1)
+  fastDuration: 3.2,
 
-  // Courbe d'atténuation (GSAP easing) pour la phase de décélération principale
-  spinEase: 'power4.inOut',
+  // Courbe d'accélération pour la phase rapide
+  fastEase: 'power2.in',
+
+  // Durée (en secondes) de la phase de décélération lente (Segment 2) through the last 10 cards
+  slowDuration: 7.8,
+
+  // Courbe d'atténuation progressive pour le Segment 2
+  slowEase: 'power3.out',
 
   // Durée (en secondes) de la phase de retour/rebond vers le centre
-  bounceDuration: 1.3,
+  bounceDuration: 1.2,
 
-  // Courbe de rebond (GSAP easing) : ex. 'bounce.out', 'back.out(2)', 'elastic.out'
-  bounceEase: 'bounce.out',
+  // Courbe de rebond (GSAP easing)
+  bounceEase: 'back.out(1.2)',
 
   // Échelle d'agrandissement finale (zoom) sur le gagnant
   targetScale: 3,
@@ -324,21 +330,30 @@ function startSpin(zoomScale: number) {
     }
   })
 
+  // Calculate coordinates for the slow phase start (10 cards before the winner)
+  const slowStartProgress = Math.max(0.0, (winningIndex.value - 10) / winningIndex.value)
   const overshootProgress = 1.0 + (ANIMATION_CONFIG.overshootCardFraction / winningIndex.value)
 
-  // Phase A: Spin fast and decelerate, overshooting the winner subtly
+  // Segment 1: Spin fast from 0 to slowStartProgress
   tl.to(animState, {
-    scrollProgress: overshootProgress,
-    duration: ANIMATION_CONFIG.spinDuration,
-    ease: ANIMATION_CONFIG.spinEase
+    scrollProgress: slowStartProgress,
+    duration: ANIMATION_CONFIG.fastDuration,
+    ease: ANIMATION_CONFIG.fastEase
   }, 0)
 
-  // Phase B: Correct and bounce back to exactly 1.0 (the center of the winner)
+  // Segment 2: Slow down progressively over the last 10 cards
+  tl.to(animState, {
+    scrollProgress: overshootProgress,
+    duration: ANIMATION_CONFIG.slowDuration,
+    ease: ANIMATION_CONFIG.slowEase
+  }, ANIMATION_CONFIG.fastDuration)
+
+  // Segment 3: Subtle bounce back to exactly 1.0
   tl.to(animState, {
     scrollProgress: 1.0,
     duration: ANIMATION_CONFIG.bounceDuration,
     ease: ANIMATION_CONFIG.bounceEase
-  }, ANIMATION_CONFIG.spinDuration)
+  }, ANIMATION_CONFIG.fastDuration + ANIMATION_CONFIG.slowDuration)
 }
 
 function resetStore() {
